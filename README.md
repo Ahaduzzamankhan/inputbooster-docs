@@ -40,6 +40,14 @@ Other commands:
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run search:index` | Regenerates `public/search-index.json` |
 | `npm run validate:links` | Checks every internal link and anchor |
+| `npm run check:nesting` | Checks the built HTML for invalid nesting that breaks hydration |
+
+To preview the export exactly as it is deployed, including the base path:
+
+```bash
+npm run build
+npm run serve -- --port 4000 --base /inputbooster-docs
+```
 
 ## Writing content
 
