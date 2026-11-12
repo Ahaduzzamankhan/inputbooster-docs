@@ -38,9 +38,11 @@ This site documents the source behaviour.
 | Apply behaviour | Immediate — every control writes as you change it |
 | Persist behaviour | The Save &amp; Close button writes to disk |
 
-The tab rail and the footer stay fixed. Only the section content scrolls, which
-is the fix that landed in 4.1.2-alpha: on a short window, controls below the
-fold used to be unreachable, including Save &amp; Close.
+The tab rail and the footer stay fixed. Only the section content scrolls. Rows
+that do not fit completely inside the content viewport are hidden rather than
+clipped or drawn over the header and footer. This is the fix that landed in
+4.1.2-alpha: on a short window, controls below the fold used to be unreachable,
+including Save &amp; Close.
 
 ## Overview
 
