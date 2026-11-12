@@ -17,8 +17,9 @@ The current release.
 
 **Added:** drag the header to move the window; drag the bottom-right grip to
 resize it down to 380x260; scroll the section content with the wheel or the
-scrollbar. The geometry is kept for the session and deliberately not written
-to the config file.
+scrollbar. Rows that do not fit the viewport are hidden rather than clipped
+or drawn over the fixed header and footer. The geometry is kept for the session
+and deliberately not written to the config file.
 
 **Fixed:** on a short window, controls below the fold — including Save &
 Close in some sections — could not be reached at all. The panel no longer
