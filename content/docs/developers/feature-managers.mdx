@@ -1,0 +1,188 @@
+---
+title: "Feature managers"
+description: "Every feature manager, the config key that gates it, when it is ticked and what it actually changes."
+order: 4
+group: "Internals"
+---
+
+<Lead>
+Each feature is one class in `dev.inputbooster.feature`. Every one is ticked
+from the client tick and gated by a config key, by the module manager, or by
+both.
+</Lead>
+
+## The tick order
+
+The client tick runs the managers in a fixed order. The order matters: the
+CPS limiter must see the click before the counters do, and the replay must not
+advance while a screen is open.
+
+```java
+if (moduleManager.enabled("profiles"))  perServerProfileManager.tick(client);
+if (moduleManager.enabled("debug"))     keybindConflictDetector.tick(client);
+if (moduleManager.enabled("replay") && inputAllowed) replayRecorder.tick();
+if (moduleManager.enabled("movement")) {
+    sprintManager.tick(client);
+    wTapAssist.tick(client);
+    autoStrafe.tick(client);
+}
+if (moduleManager.enabled("anti_idle")) antiIdle.tick(client);
+if (moduleManager.enabled("combat"))    cpsLimiter.tick(client);
+if (InputBoosterConfig.isBurstModeEnabled()) burstMode.tick(client);
+if (safeMode != null) safeMode.tick();
+sessionStats.tick(currentFps, cpsLimiter.getCps());
+```
+
+The drain itself happens earlier, at the head of the tick, through the
+`GameTickMixin` hook.
+
+## The managers
+
+### Movement
+
+| Class | Config key | What it does |
+| --- | --- | --- |
+| `SprintManager` | `sprint_fix`, `auto_sprint` | Sets sprinting when forward is held, not sneaking, food above 6 |
+| `WTapAssist` | `wtap_assist` | Multiplies horizontal velocity by 0.6 on the tick after forward is released |
+| `AutoStrafeManager` | `auto_strafe` | Yaw nudge of `±0.4 * (40 / FPS)` while sprinting below 40 FPS |
+
+`sprint_fix` gates the whole manager. `auto_sprint` is only consulted inside
+it.
+
+### Combat
+
+| Class | Config key | What it does |
+| --- | --- | --- |
+| `CpsLimiter` | `cps_limiter`, `max_cps`, `cps_mode` | Token bucket that caps attacks per second |
+| `BurstModeManager` | `burst_mode` | Raises the polling rate to 1000 Hz for 60 ticks after a frame-rate drop |
+
+The burst manager is ticked outside the module manager — it follows
+`burst_mode` directly.
+
+### Idle and diagnostics
+
+| Class | Config key | What it does |
+| --- | --- | --- |
+| `AntiIdleManager` | `anti_idle` | Adds 0.0001 degrees of yaw every 200 ticks |
+| `EventLog` | `event_log` | Bounded in-memory list of the last 80 events |
+| `SessionStats` | — | Session counters and the 60-second CPS graph |
+| `LatencyProfiler` | — | Rolling window of queue-to-drain times |
+| `KeybindConflictDetector` | `key_conflict_warn` | One-shot scan for two bindings on the same key |
+| `DebugOverlayManager` | `show_f3_info` | Owns the decision to draw the overlay |
+| `OverlayRenderer`, `OverlayLayout` | `overlay_*` | Draws the panel and places it |
+
+### Features
+
+| Class | Config key | What it does |
+| --- | --- | --- |
+| `ReplayRecorder` | `replay_enabled` | Records and replays queued actions |
+| `ProfileManager` | — | Loads and saves profiles |
+| `PerServerProfileManager` | `per_server_profiles` | Detects the server and applies the bound profile |
+| `InputClickSoundManager` | `click_sounds` | Plays a UI click for executed actions |
+
+### Infrastructure
+
+| Class | Config key | What it does |
+| --- | --- | --- |
+| `ModuleManager` | — | Runtime on/off switches for seven modules |
+| `SafeModeManager` | `safe_mode` | Disables a module after five errors in ten seconds |
+| `ConfigTools` | — | Import, export and presets — **never called by the UI** |
+
+<Callout variant="warning" title="ConfigTools is unreachable">
+`ConfigTools.applyPreset`, `exportConfig` and `importConfig` are implemented
+and correct, but no button in the settings screen calls them. The presets
+`pvp`, `low_fps`, `debug` and the default `balanced` are therefore not
+reachable from the game.
+</Callout>
+
+## The module manager
+
+`ModuleManager` holds seven runtime switches:
+
+```java
+runtime.put("input", true);
+runtime.put("combat", true);
+runtime.put("movement", true);
+runtime.put("debug", true);
+runtime.put("profiles", true);
+runtime.put("anti_idle", true);
+runtime.put("replay", true);
+```
+
+`enabled()` combines the runtime switch with the config:
+
+| Module | Also requires |
+| --- | --- |
+| `combat` | `cps_limiter` |
+| `movement` | Any of `sprint_fix`, `auto_sprint`, `wtap_assist`, `auto_strafe` |
+| `debug` | `show_f3_info` or `event_log` |
+| `profiles` | `per_server_profiles` |
+| `anti_idle` | `anti_idle` |
+| `replay` | `replay_enabled` |
+| `input` | Nothing — this is the execution layer itself |
+
+The runtime switch is what Safe Mode flips.
+
+## Safe Mode
+
+`SafeModeManager` counts errors per module inside a rolling ten-second
+window:
+
+```java
+private static final long WINDOW_MS = 10_000L;
+private static final int ERROR_THRESHOLD = 5;
+```
+
+When a module crosses the threshold, only that module is disabled and the
+window resets. The rest of the mod keeps working. The module is re-enabled
+after a full quiet window, so a transient failure self-heals.
+
+The modules Safe Mode can act on are the seven the module manager knows. An
+error source that is not one of them — `client tick`, for example — is counted
+and reported, but it cannot grow the module manager's key set.
+
+<Callout variant="info" title="The mod-level flag is never cleared">
+Safe Mode disables a module. It never clears `InputBoosterMod.active`, so the
+mod as a whole stays on. Only a failed initialisation turns the whole mod
+off.
+</Callout>
+
+## Writing a new feature
+
+The pattern every feature follows:
+
+<Steps>
+  <Step title="Add the config key">
+    A volatile field in `InputBoosterConfig`, a getter, a setter that clamps,
+    a line in `load()`, a line in `save()` and a line in `resetDefaults()`.
+  </Step>
+  <Step title="Add the manager">
+    One class in the feature package with a `tick(Minecraft)` method that
+    returns immediately when the config flag is off.
+  </Step>
+  <Step title="Wire it into the tick">
+    Create it in `initialize()`, tick it in `onClientTick()` behind the module
+    manager.
+  </Step>
+  <Step title="Add the control">
+    A row in the settings screen. Every control must write a real config
+    value.
+  </Step>
+  <Step title="Add it to the profile">
+    Only if it should travel with a profile, and only if the field is added
+    to the `Profile` record, `toJson`, `fromJson` and `apply`.
+  </Step>
+</Steps>
+
+<Callout variant="note" title="The one rule that is easy to break">
+A control that does not write a config value is a lie in the interface. The
+4.1.x rework was partly about removing exactly that. If a toggle exists, it
+must change a file value that something reads.
+</Callout>
+
+## Related pages
+
+- [Architecture](/docs/developers/architecture) — the package layout.
+- [Combat and movement](/docs/guide/combat-and-movement) — the player-facing
+  behaviour.
+- [Settings UI](/docs/developers/settings-ui) — how the screens are built.

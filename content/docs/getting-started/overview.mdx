@@ -1,0 +1,96 @@
+---
+title: "Overview"
+description: "What InputBooster is, the problem it solves, and the boundaries it deliberately keeps."
+order: 1
+group: "Start here"
+badge: "Alpha"
+---
+
+<Lead>
+InputBooster is a client-side Minecraft mod that samples keyboard and mouse state faster
+than the game tick. It recovers a press that begins and ends between two ticks and turns it
+into the action vanilla would have run. It is not an autoclicker.
+</Lead>
+
+Minecraft reads most gameplay input on the client tick. At 20 ticks per second, a tick is
+50&nbsp;ms long. A short tap can go down and up inside one tick window, especially at low
+FPS or during a stutter. Vanilla never sees the edge, so no attack, jump or use happens.
+InputBooster watches the platform key state between ticks and preserves that edge.
+
+The mod is **client only**. A server does not install it and does not need a companion
+plugin. The actions it drains end in ordinary vanilla client calls, so the server sees normal
+gameplay.
+
+<Callout variant="warning" title="Alpha build">
+InputBooster `4.1.2-alpha` is the current source tree. Its input engine and settings screen
+are new code and have not been tested in a running client. `4.0.3-stable` is the last stable
+build. Read [Limitations](/docs/reference/limitations) before relying on a setting in
+competitive play.
+</Callout>
+
+## The problem in one tick
+
+Vanilla's keyboard and mouse handlers only tell the player what is true when the tick runs.
+If a key is already released by then, the press can be lost. Polling at 60–1000&nbsp;Hz
+means the mod can observe the transition while it exists and queue one action for the next
+tick.
+
+<Mermaid
+  chart={`flowchart LR
+    A[Platform key state] --> E[InputEngine state machine]
+    B[Keyboard events] --> E
+    C[Mouse events] --> E
+    E --> Q[Bounded queue / 128]
+    Q --> D[InputDrainer at tick HEAD]
+    D --> V[Vanilla client calls]
+    D --> S[Suppress vanilla duplicate for that tick]`}
+  caption="The input path in 4.1.2-alpha. Vanilla's own handlers still run; the mod only adds another observer and a drain step."
+/>
+
+## What it does
+
+- Samples the player's **actual bound keys** at a configurable rate, from 60 to 1000&nbsp;Hz.
+- Uses keyboard and mouse event hooks as a second source when they are available.
+- Converts state changes into **one action per physical edge** through a single state machine.
+- Queues actions in a bounded 128-entry queue and drains them at the start of a client tick.
+- Suppresses vanilla's duplicate attack or use for the tick the mod already handled.
+- Provides optional combat, movement, overlay, profile and replay tools around that core.
+
+## What it does not do
+
+- It does not generate clicks or movement without a physical press.
+- It does not extend reach, change hit registration, or alter what the server receives.
+- It does not replace vanilla's `KeyboardHandler` or `MouseHandler`.
+- It does not cancel other mods' key events or remap their bindings.
+- It does not ship a benchmark claim. The repository states that no client benchmark exists,
+  so this site publishes no FPS or latency-improvement figure.
+- It does not support Minecraft 1.21.x in this source tree. The archived API repository is a
+  separate, unmaintained project; see [Archived API](/docs/releases/archived-api).
+
+<Callout variant="info" title="The honest measurement">
+The latency profiler measures the time between an action being stamped at capture and being
+drained on the game thread. That is queue-to-drain time inside the mod, not hardware latency,
+not frame time, and not a comparison with vanilla.
+</Callout>
+
+## Supported builds
+
+| Loader | Minecraft | Jar |
+| --- | --- | --- |
+| Fabric | 26.2 | `inputbooster-4.1.2-alpha-fabric-mc262.jar` |
+| Fabric | 26.3 | `inputbooster-4.1.2-alpha-fabric-mc263.jar` |
+| NeoForge | 26.2 | `inputbooster-4.1.2-alpha-nf-mc262.jar` |
+
+Java 25 is required. Fabric builds need Loader 0.19.0 or newer and Fabric API 0.161.0 or
+newer; the NeoForge build needs 26.2.0.88 or newer. Install exactly one jar. Full details are
+in the [support matrix](/docs/releases/support-matrix).
+
+## Where to go next
+
+- [Requirements](/docs/getting-started/requirements) — loaders, Java and version matching.
+- [Installation](/docs/getting-started/installation) — get a first launch working.
+- [First session](/docs/getting-started/first-session) — open the settings and verify the
+  pipeline.
+- [Architecture](/docs/developers/architecture) — how the code is organised.
+- [Limitations](/docs/reference/limitations) — every known gap, including settings that are
+  persisted but have no runtime effect.

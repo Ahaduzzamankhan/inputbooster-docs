@@ -1,0 +1,118 @@
+---
+title: "Support matrix"
+description: "Exactly which Minecraft versions, loaders and Java versions each published jar supports."
+order: 2
+group: "Releases"
+---
+
+<Lead>
+Three jars cover the whole supported surface. Everything else in the release
+history either targets an older Minecraft or must not be installed.
+</Lead>
+
+## The current jars
+
+| Loader | Minecraft | Java | Jar |
+| --- | --- | --- | --- |
+| NeoForge | 26.2 | 25 | `inputbooster-4.1.2-alpha-nf-mc262.jar` |
+| Fabric | 26.2 | 25 | `inputbooster-4.1.2-alpha-fabric-mc262.jar` |
+| Fabric | 26.3 | 25 | `inputbooster-4.1.2-alpha-fabric-mc263.jar` |
+
+## The dependency declarations
+
+These are the exact ranges in the mod metadata, not a summary.
+
+### Fabric 26.3
+
+```json
+"depends": {
+  "fabricloader": ">=0.19.0",
+  "fabric-api": ">=0.161.0",
+  "minecraft": ">=26.3 <26.4",
+  "java": ">=25"
+}
+```
+
+### Fabric 26.2
+
+```json
+"depends": {
+  "fabricloader": ">=0.19.0",
+  "fabric-api": ">=0.161.0",
+  "minecraft": ">=26.2 <26.3",
+  "java": ">=25"
+}
+```
+
+### NeoForge 26.2
+
+```toml
+[[dependencies.${mod_id}]]
+modId="neoforge"
+type="required"
+versionRange="[26.2.0.88,)"
+side="CLIENT"
+
+[[dependencies.${mod_id}]]
+modId="minecraft"
+type="required"
+versionRange="[26.2,26.3)"
+side="CLIENT"
+```
+
+## The requirement table
+
+| Requirement | Fabric 26.2 | Fabric 26.3 | NeoForge 26.2 |
+| --- | --- | --- | --- |
+| Minecraft | 26.2 | 26.3 | 26.2 |
+| Loader | Fabric 0.19.0+ | Fabric 0.19.0+ | NeoForge 26.2.0.88+ |
+| API | Fabric API 0.161.0+ | Fabric API 0.161.0+ | — |
+| Java | 25 | 25 | 25 |
+| Side | Client | Client | Client |
+| Mixin level | `JAVA_25` | `JAVA_25` | `JAVA_25` |
+
+<Callout variant="info" title="Why the Fabric range has no brackets">
+Fabric Loader 0.19.5 mis-parses `[26.3,26.4)` when the Minecraft version has
+two components, and rejects 26.3 itself. The space-separated comparison form
+is parsed and evaluated correctly. The CI pipeline asserts this form before
+it uploads a jar.
+</Callout>
+
+## What is not supported
+
+| Combination | Status |
+| --- | --- |
+| Minecraft 1.21.x | No build in this tree. The 1.21 jars are a different codebase |
+| NeoForge + Minecraft 26.3 | No build exists |
+| Java 21 | The mixin manifest requires `JAVA_25` |
+| Fabric Loader below 0.19.0 | Below the declared minimum |
+| Fabric API below 0.161.0 | Below the declared minimum |
+| NeoForge below 26.2.0.88 | Below the declared minimum |
+| Server-side install | The mod is client only on both loaders |
+
+## The older lines
+
+| Version | Minecraft | Loaders | Note |
+| --- | --- | --- | --- |
+| 4.1.1-alpha, 4.1.0-alpha | 26.2 / 26.3 | Fabric, NeoForge | 4.1.0 crashes on launch |
+| 4.0.3-stable | 26.2 / 26.3 | Fabric, NeoForge | The last stable build |
+| 4.0.2-stable | 26.2 / 26.3 | Fabric, NeoForge | Crashes on launch |
+| 4.0.2-alpha, 4.0.1-beta | 26.2 / 26.3 | Fabric, NeoForge | Alpha and beta |
+| 3.1.4 | 26.2 / 26.3 | Fabric, NeoForge | — |
+| 3.1.3, 3.1.2 | 26.2 / 26.3 | Fabric, NeoForge | Crashes on launch |
+| 3.1.1, 3.1.0 | 26.2 / 26.3 | Fabric, NeoForge | — |
+| 3.0.2-rl1 and earlier betas | 1.21.11 | Fabric, NeoForge | A different codebase |
+
+## Install exactly one
+
+<Callout variant="danger" title="Two jars never go in the same folder">
+Every jar contains the same mixins. Two jars means two copies of
+`GameTickMixin` and two `KeyboardHandlerMixin` in the same class, which fails
+the client during class transformation.
+</Callout>
+
+## Related pages
+
+- [Jar matrix](/docs/installation/jar-matrix) — the file names.
+- [Requirements](/docs/getting-started/requirements) — checking your setup.
+- [Changelog](/docs/releases/changelog) — what changed.

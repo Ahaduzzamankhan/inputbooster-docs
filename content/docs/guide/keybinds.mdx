@@ -1,0 +1,127 @@
+---
+title: "Key binds"
+description: "The two InputBooster key bindings, the Ctrl+1-5 poll rate presets, and the twelve bindings the mod tracks for you."
+order: 2
+group: "Settings screen"
+---
+
+<Lead>
+InputBooster registers two key mappings of its own. Everything else it does
+starts from the twelve vanilla bindings it reads, never from a binding it
+creates.
+</Lead>
+
+## The mod's own bindings
+
+| Key | Action | Config that gates it |
+| --- | --- | --- |
+| <Kbd>R</Kbd> | Start or stop replay recording | `replay_enabled` |
+| <Kbd>K</Kbd> | Play the recording back | `replay_enabled` |
+
+Both are created in `InputBoosterMod.createKeyMappings()`:
+
+```java
+replayRecordKey = new KeyMapping(
+    "key.inputbooster.replay_record", InputConstants.KEY_R, KeyMapping.Category.MISC);
+replayPlayKey = new KeyMapping(
+    "key.inputbooster.replay_play", InputConstants.KEY_K, KeyMapping.Category.MISC);
+```
+
+<Callout variant="info" title="They live under Misc">
+The README says the bindings appear in an InputBooster category. The source
+registers them under `KeyMapping.Category.MISC`, so on a vanilla client you
+will find them in the Misc section of the controls screen. Rebinding works
+normally from there.
+</Callout>
+
+There is no "open settings" binding. The settings screen is opened from the
+options screen only.
+
+## Combo keys
+
+With `combo_keys` enabled, holding <Kbd>Ctrl</Kbd> and pressing a number key
+applies a manual poll rate preset:
+
+| Chord | Poll rate |
+| --- | --- |
+| <Kbd>Ctrl</Kbd> + <Kbd>1</Kbd> | 100 Hz |
+| <Kbd>Ctrl</Kbd> + <Kbd>2</Kbd> | 200 Hz |
+| <Kbd>Ctrl</Kbd> + <Kbd>3</Kbd> | 350 Hz |
+| <Kbd>Ctrl</Kbd> + <Kbd>4</Kbd> | 500 Hz |
+| <Kbd>Ctrl</Kbd> + <Kbd>5</Kbd> | 1000 Hz |
+
+Applying a preset switches `poll_rate_auto` off and sets `poll_rate_hz`. The
+rate is confirmed with an action-bar message.
+
+<Callout variant="note" title="The chord latches">
+The combo key handler tracks whether each digit is already held, so holding
+<Kbd>Ctrl</Kbd> + <Kbd>1</Kbd> applies the preset once, not once per tick.
+Opening a screen resets the latch, and releasing Ctrl resets it too.
+</Callout>
+
+The presets live in `ComboKeyPresets`:
+
+```java
+public static final int[] HZ = { 100, 200, 350, 500, 1000 };
+```
+
+## The twelve bindings the mod tracks
+
+The mod reads your **actual** key bindings, so if you rebind attack to a
+mouse button, the mod follows. The twelve it reads are:
+
+| Action | Vanilla binding | Mod action |
+| --- | --- | --- |
+| Attack | `keyAttack` | `ATTACK_PRESSED` / `ATTACK_RELEASED` |
+| Use | `keyUse` | `USE_PRESSED` / `USE_RELEASED` |
+| Sprint | `keySprint` | `SPRINT_PRESSED` / `SPRINT_RELEASED` |
+| Sneak | `keyShift` | `SNEAK_PRESSED` / `SNEAK_RELEASED` |
+| Jump | `keyJump` | `JUMP_PRESSED` |
+| Forward | `keyUp` | `FORWARD_PRESSED` / `FORWARD_RELEASED` |
+| Back | `keyDown` | `BACK_PRESSED` / `BACK_RELEASED` |
+| Left | `keyLeft` | `LEFT_PRESSED` / `LEFT_RELEASED` |
+| Right | `keyRight` | `RIGHT_PRESSED` / `RIGHT_RELEASED` |
+| Drop | `keyDrop` | `DROP_PRESSED` |
+| Swap offhand | `keySwapOffhand` | `SWAP_PRESSED` |
+| Pick block | `keyPickItem` | `PICK_BLOCK_PRESSED` |
+
+<Callout variant="warning" title="A binding you cannot read falls back to the default">
+If a binding cannot be read, the mod substitutes the vanilla default for that
+slot and logs `Could not read every key binding; using vanilla defaults for
+the rest.` The Keyboard tab of the settings screen reports whether all twelve
+resolved.
+</Callout>
+
+Bindings are republished every client tick, because you can rebind while the
+game is running. The published set is only replaced when a code actually
+changed, so the polling thread does not re-read an unchanged binding list on
+every sample.
+
+## Key conflicts
+
+`key_conflict_warn` enables the conflict detector. It compares the mod's own
+bindings against the vanilla movement and action bindings and warns when they
+clash.
+
+<Callout variant="note" title="What a conflict means">
+A conflict is not an error. It means the same physical key is bound to two
+things, so one press does two things. The detector warns; it does not
+intercept, cancel or remap anything.
+</Callout>
+
+## Rebinding
+
+Standard vanilla behaviour: open the controls screen, find the binding, click
+it, press the new key.
+
+The mod's bindings are in the Misc category, alongside vanilla's other
+bindings. Nothing in the mod blocks or overrides a rebind — the published
+binding set is rebuilt from the options object every tick.
+
+## Related pages
+
+- [The settings screen](/docs/guide/settings) — the tab each setting lives in.
+- [Input recovery](/docs/guide/input-recovery) — what a recovered press is and
+  when it happens.
+- [Replay and logs](/docs/guide/replay-and-logs) — the R and K bindings in
+  practice.

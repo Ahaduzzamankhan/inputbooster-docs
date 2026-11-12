@@ -1,0 +1,114 @@
+---
+title: "Updating"
+description: "Move between InputBooster versions, keep or reset your settings, and roll back safely when a new build misbehaves."
+order: 2
+group: "Jar selection"
+---
+
+<Lead>
+Updating is a file swap. The only thing that needs care is the config schema
+version and the fact that a bad alpha can stop the client from starting.
+</Lead>
+
+## The update procedure
+
+<Steps>
+  <Step title="Close the game completely">
+    Not just the world — the whole client. The mod writes its config on
+    shutdown, and a jar swap while the game is running corrupts the next save.
+  </Step>
+  <Step title="Delete the old jar">
+    Remove every InputBooster jar from `mods`. Do not keep the old one as a
+    backup inside the folder; the client loads every jar it finds.
+  </Step>
+  <Step title="Copy the new jar in">
+    Exactly one jar, matching your loader and Minecraft version. See the
+    [jar matrix](/docs/installation/jar-matrix).
+  </Step>
+  <Step title="Start and read the log">
+    The mod logs the schema version it loaded and whether it migrated anything.
+  </Step>
+  <Step title="Re-check your settings">
+    Open the settings screen and confirm the values survived.
+  </Step>
+</Steps>
+
+## Schema versions
+
+The config carries a `config_version`. The current schema is **305**.
+
+| Schema | Introduced in | Meaning |
+| --- | --- | --- |
+| 305 | 4.1.0-alpha | Current. Adds the nine 4.1 engine and overlay keys. |
+| 303 and earlier | 3.x | Older schema, migrated on load. |
+
+When the mod loads a file with a lower version, it logs a migration line and
+renames three legacy keys:
+
+| Old key | New key |
+| --- | --- |
+| `auto_sprint_key` | `auto_sprint` |
+| `watap` | `wtap_assist` |
+| `pollrate` | `poll_rate_hz` |
+
+<Callout variant="info" title="Migration never invents values">
+The migration only renames keys. Every key you did not set keeps its default,
+and every key that cannot be parsed is reset to its default and named in a
+single warning line. See [validation](/docs/configuration/validation).
+</Callout>
+
+## What is preserved across an update
+
+Your config file is read on launch and written on shutdown. A version change
+does not touch it unless the schema version changed.
+
+**Preserved:** every key present in your file, as long as it parses and stays
+inside its range.
+
+**Reset to defaults:** keys that were missing from the file, keys with an
+unparsable value, and keys whose value falls outside the allowed range.
+
+**Not preserved:** the settings window's size and position. Those are session
+state by design and are never written to disk.
+
+<Callout variant="warning" title="A new key looks like a reset">
+When you update from 4.0 to 4.1, the nine new keys appear with their default
+values. They were not in your file, so they were never yours. The
+[configuration reference](/docs/configuration/keys) lists which key belongs to
+which version.
+</Callout>
+
+## Rolling back
+
+A rollback is the same procedure in reverse: delete the new jar, put the old
+one back.
+
+The risk is a config the new version wrote that the old version does not know.
+Because the loader starts from the documented defaults and only applies keys
+that are present in the file, an unknown key is simply ignored by the older
+build. Rolling back does not break the config.
+
+<Callout variant="note" title="Keep one known-good jar outside `mods`">
+A jar sitting in your Downloads folder costs nothing and saves a session when
+4.1.2-alpha misbehaves. Keep `4.0.3-stable` there.
+</Callout>
+
+## Downgrading past the schema
+
+If you move from 4.1 back to a 3.x build, the schema version in your file will
+be higher than that build understands. Older builds read `config_version` but
+do not have a migration path, so they simply use the keys they recognise.
+Nothing crashes; the newer keys are ignored.
+
+## After every update
+
+Run through this short list:
+
+- `Ready!` appears in the log.
+- The Overview tab shows the poll thread running.
+- The engine mode is the one you expect.
+- Your poll rate and CPS cap are the values you set.
+
+If the poll rate or cap came back as a default, the file was reset on load.
+The reason is in the log line that starts with `Config entries reset to
+defaults`. The [log reference](/docs/troubleshooting/log-reference) explains it.

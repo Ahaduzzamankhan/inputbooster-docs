@@ -1,0 +1,172 @@
+---
+title: "Diagnosing input"
+description: "A systematic way to find out where an input is being lost, from the counters down to the source."
+order: 3
+group: "Fix it"
+---
+
+<Lead>
+When an input does not arrive, the problem is always in one of five places.
+This page walks them in order, from the cheapest check to the deepest.
+</Lead>
+
+## The five places an input can be lost
+
+<Mermaid
+  chart={`flowchart TB
+    A[1. Physical press] --> B[2. Poller or event hook]
+    B --> C[3. Engine state]
+    C --> D[4. Queue]
+    D --> E[5. Drainer]
+    E --> F[Vanilla call]
+    A -.->|not observed| B
+    B -.->|no edge| C
+    C -.->|rejected| D
+    D -.->|cleared| E
+    E -.->|condition failed| F`}
+  caption="Each stage has its own counter or log line. Start at the top."
+/>
+
+## Stage 1 — is the press even reaching the game?
+
+Open the settings screen, go to Overview, and read the **Keys** and **Mouse**
+counters.
+
+| Symptom | Conclusion |
+| --- | --- |
+| Both counters stay at zero | No event is arriving. Check the log for `All client hooks present.` and whether the client is running the mod at all |
+| The counters rise when you press keys | Events are arriving. Move to stage 2 |
+
+<Callout variant="note" title="The counters are cumulative">
+They count every event since the mod started, including repeats and scroll.
+They do not reset on a screen open.
+</Callout>
+
+## Stage 2 — which source is live?
+
+The Compatibility tab shows whether the event hooks applied and which mode the
+engine resolved.
+
+| Engine mode | What it means |
+| --- | --- |
+| `event` | The hooks are live and dispatching |
+| `poll` | The poller is the source |
+
+If the mode is `poll` and you expected `event`, one of these is true:
+
+| Cause | Check |
+| --- | --- |
+| The hooks never fired | The log line `Keyboard/mouse event hooks are live.` is missing |
+| An input mod is installed | The Compatibility tab lists it. The fallback downgrades to polling |
+| `engine_mode` is 1 but the hooks are not live | Event mode falls back to polling until the first event proves the hooks work |
+
+## Stage 3 — is the edge being detected?
+
+The Overview tab's **Engine** row shows the mode. The overlay's counter line
+shows the action count:
+
+```text
+Keys 1.2k  Mouse 430  Actions 880
+```
+
+`Actions` is the number of actions that were submitted to the dispatcher.
+
+| Comparison | Conclusion |
+| --- | --- |
+| Keys and mouse rise, actions do not | The event is not reaching a tracked slot |
+| Actions rise, the queue stays at 0 | The actions are being drained immediately |
+| Actions rise, the queue sits at 128 | The drainer is not running |
+
+<Callout variant="info" title="A key the mod does not track">
+Only the twelve tracked bindings produce actions. A key bound to something
+else — a mod binding, a macro key — raises the event counters but produces no
+action. That is expected.
+</Callout>
+
+## Stage 4 — is the queue full?
+
+| Reading | Meaning |
+| --- | --- |
+| `Queue 0/128` | Empty. Nothing is waiting |
+| `Queue 127/128` or `128/128` | The drainer is not keeping up, or it is not running |
+| `Queue` growing steadily | The drainer is not running at all |
+
+A full queue means new actions are rejected. The physical press is lost. Look
+for the drainer's failure lines in the log.
+
+## Stage 5 — did the drainer execute it?
+
+The drainer runs at the head of the tick. It refuses to execute when:
+
+| Condition | How to confirm |
+| --- | --- |
+| A screen is open | The screen hook line in the log |
+| There is no player | Obvious |
+| The mod is not active or not initialised | The `Fatal init error!` line |
+| Safe Mode disabled the `input` module | The `[SafeMode] Module 'input' disabled` line |
+
+## The per-action conditions
+
+Even when an action reaches the drainer, it may do nothing. Check the
+condition for that action:
+
+| Action | Fails when |
+| --- | --- |
+| `ATTACK_PRESSED` | The hit result is not a living entity within 36 squared units |
+| `USE_PRESSED` | The hit result is not `MISS` |
+| `JUMP_PRESSED` | The player is not grounded, in water, in lava or climbing |
+| `FORWARD_RELEASED` | The forward key is still down |
+| `PICK_BLOCK_PRESSED` | The crosshair is not on a block, or the accessor did not apply |
+
+The [action reference](/docs/reference/actions) has the exact rule for each.
+
+## The systematic checklist
+
+<Steps>
+  <Step title="Read the log">
+    `Ready!` present? Any `Fatal init error!`? Any `Missing vanilla method(s)`?
+    Any `[SafeMode]` line?
+  </Step>
+  <Step title="Check the mixin hooks">
+    `All client hooks present.` and at least one screen hook `true`?
+  </Step>
+  <Step title="Read the counters">
+    Do the key and mouse counters move when you press?
+  </Step>
+  <Step title="Read the engine mode">
+    Is it the mode you expected? If it fell back, why?
+  </Step>
+  <Step title="Read the queue">
+    Is it empty? Is it full? Both are informative.
+  </Step>
+  <Step title="Check the action condition">
+    Is the action's precondition actually satisfied in the situation where it
+    fails?
+  </Step>
+  <Step title="Rule out other mods">
+    Disable the other input mods one at a time. The detector only knows six of
+    them.
+  </Step>
+</Steps>
+
+## A quick self-test
+
+The clearest test of the whole path:
+
+1. Join a world.
+2. Open the settings screen and note the **Keys** and **Actions** counters.
+3. Tap the attack key five times quickly.
+4. Watch the counters.
+
+| Result | Where the problem is |
+| --- | --- |
+| Keys did not rise | Stage 1 — the event never arrived |
+| Keys rose, Actions did not | Stage 3 — the edge was not detected |
+| Actions rose, the queue stayed full | Stage 4 — the drainer is not running |
+| Actions rose, the queue emptied, no attack happened | Stage 5 — the action condition failed |
+
+## Related pages
+
+- [Log reference](/docs/troubleshooting/log-reference) — every line.
+- [Common issues](/docs/troubleshooting/common-issues) — the fixes.
+- [Engine modes](/docs/developers/engine-modes) — why the mode is what it is.

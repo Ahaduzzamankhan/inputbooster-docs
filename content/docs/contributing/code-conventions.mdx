@@ -1,0 +1,204 @@
+---
+title: "Code conventions"
+description: "The patterns, comments and rules the InputBooster source follows, and why each one exists."
+order: 2
+group: "Contribute"
+---
+
+<Lead>
+The code is heavily commented, and the comments explain *why* rather than
+*what*. Matching that style is part of contributing here.
+</Lead>
+
+## General style
+
+| Rule | Example |
+| --- | --- |
+| Four spaces, no tabs | Standard Java |
+| Java naming conventions | `camelCase` for fields and methods, `PascalCase` for types |
+| One public class per file | The file name matches the class |
+| `final` where nothing is inherited | Used on the utility classes |
+| Braces on the same line | `if (x) {` |
+
+## Comments explain why
+
+A comment that restates the code is noise. A comment that records a decision
+is documentation. The codebase is full of the second kind:
+
+```java
+// The hit result is one frame old at tick start.
+// Only fire at a target that is still alive and
+// within vanilla melee reach.
+if (target != null && target.isAlive()
+    && player.distanceToSqr(target) <= 36.0D) {
+```
+
+```java
+// FIX (keybinds never registered): the mappings used to be
+// constructed in the client-setup callback, which on NeoForge runs
+// *after* the key-mapping registration event.
+```
+
+<Callout variant="info" title="The FIX comment convention">
+When a bug is fixed in place, the comment starts with `FIX (...)` and says
+what the old behaviour was. It is a short history of the decision, and it
+stops the next reader from re-introducing the bug.
+</Callout>
+
+## The threading rule
+
+The polling thread must never touch a Minecraft object. It reads immutable
+data captured on the game thread and a raw key state handle.
+
+```java
+// The thread reads immutable data captured on the game thread
+// and a raw key state handle, and never touches a Minecraft object.
+```
+
+The state managers are deliberately not thread-safe:
+
+```java
+// Not thread-safe by design. The game thread and the polling thread
+// both use it, so the engine hands each of them its own instance and
+// merges edges rather than adding a lock to the hot path.
+```
+
+Adding a lock to the hot path to make a new field safe is the wrong fix.
+Give each thread its own instance, or publish an immutable snapshot.
+
+## No allocation in the hot path
+
+The poll loop allocates nothing:
+
+```java
+// No allocation happens per poll: the raw path reads codes directly
+// instead of building a snapshot object every iteration.
+```
+
+The overlay keeps its text in a reused array and rebuilds it at most four
+times a second. The session statistics use a primitive ring buffer for the
+same reason.
+
+<Callout variant="warning" title="Watch the counters">
+`ConcurrentLinkedQueue.size()` is O(n). The action queue keeps an explicit
+counter for that reason. A new hot-path call to `size()` is a performance
+regression waiting to happen.
+</Callout>
+
+## Failure handling
+
+Catch `Throwable`, not `Exception`, at the boundaries:
+
+```java
+} catch (Throwable e) {
+    // Throwable, not Exception: a missing class or a linkage error
+    // from a version mismatch would otherwise escape into the tick
+    // handler on every single tick.
+    initFailed = true;
+    LOGGER.error("[{}] Fatal init error! InputBooster is disabled for this session.", MOD_NAME, e);
+    active = false;
+}
+```
+
+One failing action must not abort the tick:
+
+```java
+try {
+    apply(stamped.action(), mc);
+} catch (Throwable t) {
+    InputBoosterMod.LOGGER.warn("[InputBooster] {} failed: {}", stamped.action(), t.toString());
+    if (InputBoosterMod.safeMode != null) {
+        InputBoosterMod.safeMode.recordError("input", t);
+    }
+    continue;
+}
+```
+
+## Config changes
+
+A new config key touches six places in `InputBoosterConfig`:
+
+<Steps>
+  <Step title="A volatile field">
+    In the appropriate group, with a comment if the value is not obvious.
+  </Step>
+  <Step title="A getter and a setter">
+    The setter clamps. Never trust a value that came from outside.
+  </Step>
+  <Step title="A line in load()">
+    Parsed with the matching helper, clamped inline.
+  </Step>
+  <Step title="A line in save()">
+    Written unconditionally so the file always lists every key.
+  </Step>
+  <Step title="A line in resetDefaults()">
+    Otherwise the key keeps a stale value across a load.
+  </Step>
+  <Step title="A line in warnAboutDefaults()">
+    If the key should be validated and reported when it is bad.
+  </Step>
+</Steps>
+
+<Callout variant="warning" title="Do not forget resetDefaults()">
+An earlier version only assigned the keys that were present in the file, so a
+key missing from the file kept whatever value it had in memory. Importing a
+partial config leaked the previous session's settings. `resetDefaults()` at
+the top of `load()` is what prevents that.
+</Callout>
+
+## Version differences
+
+Anything that differs between Minecraft 26.2 and 26.3 goes in
+`src/compat/mc26_2` or `src/compat/mc26_3`. Nothing version-specific belongs
+in the shared core.
+
+```java
+// 26.x requires an explicit swing animation component on 26.3
+// and a plain hand on 26.2; the compat shim hides the difference.
+McVersion.swingArm(player);
+```
+
+The build includes exactly one compat source set per target.
+
+## Logging
+
+| Situation | Level | Prefix |
+| --- | --- | --- |
+| Startup and shutdown | `info` | `[InputBooster]` or a bracketed tag |
+| A recoverable problem | `warn` | `[Mixin]`, `[SafeMode]`, `[Profile]` |
+| A fatal problem | `error` | `[InputBooster]` |
+
+Log lines start with a bracketed tag so they are easy to find:
+
+```java
+LOGGER.info("[Compat] Keyboard/mouse event hooks are live.");
+LOGGER.warn("[SafeMode] Module '{}' disabled after {} errors ({}).", key, ERROR_THRESHOLD, error);
+```
+
+Never log in the hot path. The counters exist instead.
+
+## Documentation comments
+
+Public classes carry a block comment that states the responsibility and the
+important invariants:
+
+```java
+/**
+ * Authoritative physical state of everything the engine tracks.
+ *
+ * <p>Two views are kept:
+ * <ul>
+ *   <li>a 512-bit {@code long[]} for raw key codes, ...</li>
+ *   <li>one boolean per action slot, which is what edge detection runs on.</li>
+ * </ul>
+ */
+```
+
+The HTML paragraph tags are the convention for a multi-paragraph comment.
+
+## Related pages
+
+- [Contribution workflow](/docs/contributing/workflow) — the process.
+- [Feature managers](/docs/developers/feature-managers) — the shape of a new
+  feature.
+- [Mixin inventory](/docs/reference/mixins) — the rules that break releases.

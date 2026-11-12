@@ -1,0 +1,186 @@
+---
+title: "Building and testing"
+description: "Build all three supported jars from source, run the test suite, and understand what the CI pipeline does."
+order: 6
+group: "Screens"
+---
+
+<Lead>
+Java 25 and a network connection for the Gradle toolchain are required. The
+repository builds a NeoForge jar and two Fabric jars from one core source
+tree.
+</Lead>
+
+## Requirements
+
+| Requirement | Value |
+| --- | --- |
+| Java | 25, set through the Gradle toolchain |
+| Network | Required for the first build to fetch the toolchain and dependencies |
+| Gradle | Provided by the wrapper — do not install it separately |
+
+The build sets a Java toolchain explicitly:
+
+```groovy
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+```
+
+## The two Gradle builds
+
+The repository has two Gradle projects.
+
+| Project | Directory | Loader | Minecraft |
+| --- | --- | --- | --- |
+| Root | `.` | NeoForge | 26.2 |
+| Fabric | `fabric/` | Fabric | 26.3 by default |
+
+Both compile the same core sources. The root project adds
+`src/neoforge/java` and one compat source set; the Fabric project adds
+`fabric/src/main/java` and its own compat source set.
+
+```groovy
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java', 'src/neoforge/java', 'src/compat/mc26_2/java']
+        }
+    }
+}
+```
+
+## Building
+
+### NeoForge, Minecraft 26.2
+
+<Command command="./gradlew build" block label="Root project" />
+
+### Fabric, Minecraft 26.3
+
+<Command command="cd fabric && ./gradlew build" block label="Fabric project" />
+
+### Fabric, Minecraft 26.2
+
+<Command
+  command={'./gradlew build -Pminecraft_version=26.2 "-Pminecraft_version_range=>=26.2 <26.3" -Pfabric_version=0.161.0+26.2'}
+  block
+  label="Fabric 26.2 override"
+/>
+
+<Callout variant="info" title="Why the range has no brackets">
+Fabric Loader 0.19.5 mis-parses a bracket range when the Minecraft version has
+two components: `[26.3,26.4)` rejects 26.3 itself with `but only the wrong
+version is present: 26.3!`. The space-separated comparison form is parsed
+correctly.
+</Callout>
+
+On Windows, use `gradlew.bat` instead of `./gradlew`.
+
+## Where the jars land
+
+| Build | Output |
+| --- | --- |
+| NeoForge | `build/libs/inputbooster-<version>-nf-mc262.jar` |
+| Fabric | `fabric/build/libs/inputbooster-<version>-fabric-mc263.jar` |
+
+The version string comes from `gradle.properties` and carries the loader
+flavour, for example `4.1.2-alpha-fabric` or `4.1.2-alpha-nf-mc262`.
+
+## Running the tests
+
+<Command command="cd fabric && ./gradlew test" block label="The test suite" />
+
+There are 16 test classes in `fabric/src/test/java/dev/inputbooster`:
+
+| Test | What it covers |
+| --- | --- |
+| `AdaptivePollRateTest` | The auto poll rate targets, ramp and instability clamp |
+| `ComboKeyPresetsTest` | The Ctrl+1-5 preset values and the latch |
+| `CpsLimiterTest` | The token bucket |
+| `CpsLimiterBurstTest` | Burst behaviour against the bucket |
+| `CpsLimiterModesTest` | `FIXED`, `HUMANIZED`, `WEAPON_AWARE` and `COOLDOWN` |
+| `EngineConfigTest` | Engine mode resolution |
+| `FabricDependencyRangeTest` | The Fabric dependency range form |
+| `InputActionQueueTest` | The queue bound and the counter |
+| `InputBoosterConfigTest` | Config round trips and validation |
+| `InputEngineTest` | Edge detection across both sources |
+| `LatencyProfilerTest` | The rolling window and the peak |
+| `MixinDeclarationTest` | The mixin declaration rules |
+| `MixinTargetSignatureTest` | Every hook signature against the real Minecraft jar |
+| `ProfileAndReplayTest` | Profile capture, apply and replay behaviour |
+| `SessionStatsTest` | The CPS buckets and the session counters |
+| `SuppressionAndOriginTest` | The tick-scoped suppression tokens and the replay origin |
+
+The changelog for 4.1.0-alpha records 81 tests in total.
+
+<Callout variant="info" title="The tests need a throwaway config directory">
+The config path comes from the `inputbooster.configDir` system property, which
+the tests set to a temporary folder. Nothing they write touches your real
+`.minecraft/config`.
+</Callout>
+
+## The two tests that guard the mod
+
+`MixinDeclarationTest` and `MixinTargetSignatureTest` exist because of two
+release-stopping crashes.
+
+**`MixinDeclarationTest`** fails the build if a registered mixin declares a
+non-private static method. Mixin only permits private static helpers inside a
+mixin, and a public one aborts the transformation of the whole target class.
+That bug shipped in 4.0.2-stable and crashed every client before the main
+menu.
+
+**`MixinTargetSignatureTest`** checks every `@Inject`, `@Accessor` and
+`@Invoker` against the resolved Minecraft jar, for both the 26.2 and 26.3
+builds. It exists because 4.1.0-alpha crashed on every loader: the keyboard
+mixin was written against the 1.21 signature `keyPress(long, int, int, int,
+int)` while 26.2 and 26.3 use `keyPress(long, int, KeyEvent)`.
+
+<Callout variant="warning" title="`require = 0` does not protect against this">
+`require = 0` tolerates a missing target. It does not tolerate a handler whose
+parameters disagree with the target — that is a fatal injection error. The
+signature test is the only thing standing between a mapping change and a
+crash on startup.
+</Callout>
+
+## CI
+
+The `gradle.yml` workflow runs on pushes to `main` and
+`fabric-26.2-26.3`, on tags, and on pull requests.
+
+| Job | What it does |
+| --- | --- |
+| `build-neoforge` | Builds the NeoForge 26.2 jar on Temurin 25 |
+| `build-fabric` | Builds both Fabric jars from a matrix, then verifies the metadata |
+| `release` | Publishes a GitHub release with all three jars |
+
+The Fabric job verifies the dependency range form before it uploads anything:
+
+```bash
+grep -q '"minecraft": *">=' /tmp/fabric.mod.json \
+  || { echo "minecraft dependency must use the '>=x <y' form" >&2; exit 1; }
+```
+
+The release job refuses to publish unless all three jars are present, derives
+the tag from `mod_version` when there is no explicit tag, and marks a release
+as a prerelease when the version contains `alpha` or `beta`.
+
+## Running the mod in a development client
+
+Both Gradle projects define a client run configuration:
+
+```bash
+./gradlew runClient
+```
+
+The NeoForge root project sets `neoforge.enabledGameTestNamespaces` to the mod
+id, so game tests in that namespace run in the development client.
+
+## Related pages
+
+- [Architecture](/docs/developers/architecture) — the source layout.
+- [Mixin inventory](/docs/reference/mixins) — what the signature test checks.
+- [Versioning](/docs/releases/versioning) — how version numbers map to jars.

@@ -1,0 +1,199 @@
+---
+title: "Architecture"
+description: "How the InputBooster source tree is organised, from the loader entrypoints down to the drainer."
+order: 1
+group: "Internals"
+---
+
+<Lead>
+The mod is a loader-neutral core with two thin platform entrypoints and one
+version-compat shim per Minecraft version. Everything else is shared.
+</Lead>
+
+## The shape of the tree
+
+<FileTree
+  title="Source layout"
+  items={[
+    "src/main/java/dev/inputbooster/InputBoosterMod.java",
+    "src/main/java/dev/inputbooster/engine/InputEngine.java",
+    "src/main/java/dev/inputbooster/engine/KeyStateManager.java",
+    "src/main/java/dev/inputbooster/engine/InputEventDispatcher.java",
+    "src/main/java/dev/inputbooster/engine/CompatibilityManager.java",
+    "src/main/java/dev/inputbooster/engine/DiagnosticsManager.java",
+    "src/main/java/dev/inputbooster/engine/KeyBindingProcessor.java",
+    "src/main/java/dev/inputbooster/engine/KeyboardProcessor.java",
+    "src/main/java/dev/inputbooster/engine/MouseProcessor.java",
+    "src/main/java/dev/inputbooster/engine/ConfigurationManager.java",
+    "src/main/java/dev/inputbooster/input/KeyboardRouter.java",
+    "src/main/java/dev/inputbooster/input/KeyBindingSet.java",
+    "src/main/java/dev/inputbooster/input/RawKeyState.java",
+    "src/main/java/dev/inputbooster/InputAction.java",
+    "src/main/java/dev/inputbooster/InputActionQueue.java",
+    "src/main/java/dev/inputbooster/InputDrainer.java",
+    "src/main/java/dev/inputbooster/InputPollingThread.java",
+    "src/main/java/dev/inputbooster/InputBoosterConfig.java",
+    "src/main/java/dev/inputbooster/ComboKeyPresets.java",
+    "src/main/java/dev/inputbooster/KeySnapshot.java",
+    "src/main/java/dev/inputbooster/McCompat.java",
+    "src/main/java/dev/inputbooster/access/MixinAccess.java",
+    "src/main/java/dev/inputbooster/mixin/GameTickMixin.java",
+    "src/main/java/dev/inputbooster/screen/InputBoosterScreen.java",
+    "src/main/java/dev/inputbooster/feature/CpsLimiter.java",
+    "src/neoforge/java/dev/inputbooster/platform/InputBoosterNeoForge.java",
+    "src/compat/mc26_2/java/dev/inputbooster/compat/McVersion.java",
+    "src/compat/mc26_3/java/dev/inputbooster/compat/McVersion.java",
+    "fabric/src/main/java/dev/inputbooster/platform/InputBoosterFabric.java",
+  ]}
+/>
+
+## The layers
+
+<Mermaid
+  chart={`flowchart TB
+    P[InputPollingThread] --> E[InputEngine]
+    K[KeyboardHandlerMixin] --> KP[KeyboardProcessor] --> E
+    M[MouseHandlerMixin] --> MP[MouseProcessor] --> E
+    E --> D[InputEventDispatcher] --> Q[InputActionQueue]
+    Q --> DR[InputDrainer] --> V[Vanilla client calls]
+    E --> C[CompatibilityManager]
+    S[ScreenTrackingMixin] --> R[KeyboardRouter] --> DR
+    CF[InputBoosterConfig] -.reads.-> E
+    CF -.reads.-> DR
+    CF -.reads.-> F[feature managers]`}
+  caption="The core path. The poller and the event mixins are the two sources; the drainer is the only place that touches the player."
+/>
+
+## The layers in detail
+
+### Platform entrypoints
+
+Two files, each a few dozen lines:
+
+| File | Loader | What it does |
+| --- | --- | --- |
+| `InputBoosterNeoForge.java` | NeoForge | Calls `bootstrap()`, registers the key mappings, forwards the client tick |
+| `InputBoosterFabric.java` | Fabric | The same, through the Fabric client entrypoint |
+
+Neither contains input logic. The core is loader-neutral:
+
+```java
+public static KeyMapping[] createKeyMappings() { ... }
+public static void bootstrap() { ... }
+public static void initialize() { ... }
+public static void onClientTick() { ... }
+public static void shutdown() { ... }
+```
+
+<Callout variant="note" title="Why the key mappings are created in bootstrap">
+On NeoForge the client-setup callback runs *after* the key-mapping
+registration event, so a registration handler only ever saw `null` and the
+bindings were silently dropped from the controls screen. The mappings are
+therefore created during mod construction, before the platform registers them.
+</Callout>
+
+### The engine package
+
+`dev.inputbooster.engine` is the input core:
+
+| Class | Responsibility |
+| --- | --- |
+| `InputEngine` | The state machine and the mode switch |
+| `KeyStateManager` | The authoritative held/released state per slot |
+| `KeyBindingProcessor` | Maps key codes to action slots |
+| `KeyboardProcessor` | Turns a key event into an engine state change |
+| `MouseProcessor` | Turns a button or scroll event into an engine state change |
+| `InputEventDispatcher` | The single exit point that queues an action |
+| `CompatibilityManager` | Detects input mods and resolves the engine mode |
+| `DiagnosticsManager` | The counters the overlay and settings screen read |
+| `ConfigurationManager` | A thin façade over the config accessors |
+
+### The input package
+
+`dev.inputbooster.input` holds the three pieces that answer "who owns the
+keyboard right now":
+
+| Class | Responsibility |
+| --- | --- |
+| `KeyboardRouter` | Tracks whether a screen is open |
+| `KeyBindingSet` | The twelve bound key codes, published per tick |
+| `RawKeyState` | A handle to the window for raw platform key state |
+
+### The feature package
+
+`dev.inputbooster.feature` holds one class per feature. Every one of them is
+ticked from `InputBoosterMod.onClientTick()` and gated by a config flag and
+by the module manager. See [feature managers](/docs/developers/feature-managers).
+
+### The mixin package
+
+Ten mixins, all client side. Two observe input, one drains the queue, the rest
+attach the UI. See the [mixin inventory](/docs/reference/mixins).
+
+### The version shim
+
+`dev.inputbooster.compat.McVersion` exists once per Minecraft version, in
+`src/compat/mc26_2` and `src/compat/mc26_3`. The build includes exactly one of
+them.
+
+It hides the differences between 26.2 and 26.3 that the mod actually touches:
+
+| Difference | Shim method |
+| --- | --- |
+| The swing call changed shape | `McVersion.swingArm(player)` |
+| `InputConstants.isKeyDown` takes a window handle in 26.2 but not in 26.3 | `McVersion.isKeyDown(key)` |
+| Sneak and jump state access | `McCompat.setSneaking`, `McCompat.isInWater`, `McCompat.isClimbing` |
+
+<Callout variant="info" title="The shim is a boundary, not a helper">
+Everything version-specific goes through the shim. That is why a 26.2 and a
+26.3 jar share one core source tree and one engine.
+</Callout>
+
+## Threading model
+
+| Thread | What it touches |
+| --- | --- |
+| Game thread | Everything Minecraft, the drainer, the tick handlers |
+| Polling thread | Raw key state and the published binding set only |
+
+The polling thread never touches a Minecraft object. The window handle and the
+binding set are captured on the game thread and published as volatile fields.
+
+<Callout variant="warning" title="The poller runs at default priority on purpose">
+An aggressively prioritised poller starves the render thread on low-end CPUs,
+which is exactly the stutter the mod exists to prevent.
+</Callout>
+
+## The lifecycle
+
+<Steps>
+  <Step title="Construction">
+    `bootstrap()` creates the key mappings. Nothing else happens yet.
+  </Step>
+  <Step title="First tick">
+    `onClientTick()` calls `initialize()`, which verifies the mixin targets,
+    loads the config, creates every manager, detects input mods, starts the
+    poller and logs `Ready!`.
+  </Step>
+  <Step title="Running">
+    Each tick: publish bindings, update the poll rate, run the combo keys,
+    tick the feature managers, tick the drainer via the mixin.
+  </Step>
+  <Step title="Shutdown">
+    The `close` mixin calls `shutdown()`, which stops the poller and waits for
+    it, clears the queue, saves the config and releases the keyboard.
+  </Step>
+</Steps>
+
+<Callout variant="danger" title="Initialisation never retries">
+If `initialize()` throws, the mod sets `initFailed`, disables itself and logs
+`Fatal init error!`. It does not retry on the next tick: an earlier version
+logged the same stack trace every tick and could start a second polling thread
+per attempt.
+</Callout>
+
+## Related pages
+
+- [Input pipeline](/docs/developers/input-pipeline) — the path of one action.
+- [Engine modes](/docs/developers/engine-modes) — how the source is chosen.
+- [Mixin inventory](/docs/reference/mixins) — every hook and its contract.

@@ -1,0 +1,197 @@
+---
+title: "Common issues"
+description: "The failures people actually hit, what causes them and what to change."
+order: 1
+group: "Fix it"
+---
+
+<Lead>
+Every issue below has a specific cause in the log. Start there rather than
+reinstalling.
+</Lead>
+
+## Start with the log
+
+<Command command=".minecraft/logs/latest.log" block label="The log" />
+
+Most problems are identified by a single line. The [log
+reference](/docs/troubleshooting/log-reference) lists all of them.
+
+## The mod did not load
+
+**Symptom:** no InputBooster button on the options screen, no `Ready!` line.
+
+| Cause | Fix |
+| --- | --- |
+| The jar does not match your Minecraft version | Use the `mc262` or `mc263` jar that matches |
+| Two jars are installed | Remove one. Two copies of the same mixins crash the client |
+| Java is not 25 | Check the launcher's Java version, not the system default |
+| The loader is too old | Fabric Loader 0.19.0+, Fabric API 0.161.0+, NeoForge 26.2.0.88+ |
+| The jar is in the wrong folder | It must be in the instance's `mods` directory, not the launcher's |
+
+## The client crashed at launch
+
+**Symptom:** the game dies before the main menu.
+
+| Cause | Fix |
+| --- | --- |
+| A mixin signature mismatch | Update to 4.1.1-alpha or newer. 4.1.0-alpha crashes on every loader |
+| Two jars installed | Remove one |
+| A non-private static method in a mixin | Use 4.0.3-stable or newer. 4.0.2-stable crashes on every client |
+
+<Callout variant="danger" title="Two versions are known to crash on launch">
+`4.0.2-stable` and `4.1.0-alpha` both crash before the main menu on every
+client. `3.1.2` and `3.1.3` crash too, for different reasons. The
+[jar matrix](/docs/installation/jar-matrix) lists which published jars are
+unusable.
+</Callout>
+
+## Typing in chat still jumps the player
+
+**Symptom:** a space typed into chat moves your character.
+
+| Cause | Fix |
+| --- | --- |
+| The screen hook did not apply | Check the log for the screen hook line. At least one of `setScreenAndShow` or `setScreen` must be `true` |
+| No screen hook applied at all | The mod falls back to a per-tick HUD check. Another mod may be feeding the player input |
+| Another mod owns input | Try the alpha keyboard handler, or remove the conflicting mod |
+
+<Callout variant="info" title="The alpha handler is not the first step">
+The chat-jump fix comes from the screen-tracking mixin, not from the custom
+keyboard handler. Enable the alpha handler only after the screen hook line
+has been checked.
+</Callout>
+
+## Nothing works in one module
+
+**Symptom:** one feature stopped working; everything else is fine.
+
+**Cause:** Safe Mode disabled it.
+
+```text
+[SafeMode] Module 'movement' disabled after 5 errors (java.lang.NullPointerException).
+```
+
+**Fix:** the module is re-enabled automatically after a quiet window. If it
+keeps happening, look for the error above that line — it names the exception.
+The mod-level switch is never cleared by Safe Mode, so the rest of the mod
+keeps running.
+
+## Clicks feel capped below your settings
+
+**Symptom:** you click faster than your `max_cps` allows.
+
+**Cause:** the CPS limiter is on.
+
+| Fix | Effect |
+| --- | --- |
+| Raise `max_cps` | The cap rises, up to 20 |
+| Set `cps_limiter=false` | No cap at all |
+| Change `cps_mode` | `WEAPON_AWARE` caps at 16, `COOLDOWN` at 18 plus a minimum gap |
+
+<Callout variant="note" title="A blocked click stays blocked">
+When the limiter rejects a click, vanilla's attack is suppressed for that
+tick. A click that the limiter blocked does not sneak through as a vanilla
+click.
+</Callout>
+
+## The overlay is missing
+
+**Symptom:** no overlay appears.
+
+| Cause | Fix |
+| --- | --- |
+| The overlay only draws with F3 open | Press F3, or set `overlay_mode=1` |
+| `show_f3_info` is off | Turn on **Overlay enabled** |
+| The opacity is zero | Raise the opacity slider |
+| The vanilla HUD overlay option is off | Enable it in the vanilla options screen |
+| The mod is not in a world | The overlay needs a player |
+
+## The settings screen is not reachable
+
+**Symptom:** the InputBooster button is not on the options screen.
+
+| Cause | Fix |
+| --- | --- |
+| The options mixin did not apply | The log will show a mixin error. This is rare |
+| The window is too small | The button is placed at `width - 110, 6`. A very narrow window can hide it |
+
+## The poll rate does not change
+
+**Symptom:** the rate slider does nothing.
+
+| Cause | Fix |
+| --- | --- |
+| Automatic mode is on | Turn **Auto** off, or use the Ctrl+1-5 presets |
+| Burst mode is active | The poller runs at 1000 Hz during a burst. The Overview tab shows 1000 |
+| The combo key preset did not apply | Make sure no screen is open and Ctrl is held |
+
+## The combo keys do not work
+
+**Symptom:** Ctrl+1 does not change the rate.
+
+| Cause | Fix |
+| --- | --- |
+| `combo_keys` is off | Turn **Combo keys (Ctrl+1-5)** on |
+| A screen is open | The combo keys are ignored while a screen is open |
+| The key is already held | The chord latches: release Ctrl and the digit, then press again |
+
+## Replay does nothing
+
+**Symptom:** pressing K does nothing.
+
+| Cause | Fix |
+| --- | --- |
+| Nothing was recorded | Press R first. The log says `[Replay] Nothing recorded yet.` |
+| `replay_enabled` is off | Turn it on in the Advanced tab |
+| A screen is open | Playback waits until the player owns the keyboard |
+| You are pressing keys | Playback holds back while real input is queued |
+
+## The profile does not switch per server
+
+**Symptom:** connecting to a server does not change the profile.
+
+| Cause | Fix |
+| --- | --- |
+| `per_server_profiles` is off | Turn it on in the Advanced tab |
+| There is no binding file | Write `inputbooster_server_profiles.properties` by hand |
+| The key is not normalised | Use the lower-case host with no scheme, path or port |
+| The profile name does not match | The value must match a profile name exactly |
+
+<Callout variant="warning" title="There is no UI for bindings">
+The binding file has to be created by hand. See
+[profile format](/docs/configuration/profiles-format#per-server-bindings).
+</Callout>
+
+## The settings look reset after an update
+
+**Symptom:** your values came back as defaults.
+
+**Cause:** the config file was reset on load, or a key was not in the file.
+
+Look for this line:
+
+```text
+Config entries reset to defaults (invalid or unparsable): poll_rate_hz=2000
+```
+
+The named keys were reset. Every other key was applied. The full list of
+checked keys is in [validation](/docs/configuration/validation).
+
+## Two InputBooster settings are different on different servers
+
+**Symptom:** a profile switch changed something you did not expect.
+
+**Cause:** a profile does not contain every key. Overlay geometry, the engine
+mode, the click dedupe and scroll debounce, and the click sound settings stay
+as they were. The
+[list of excluded keys](/docs/configuration/keys#keys-not-in-a-profile) is in
+the key reference.
+
+## Related pages
+
+- [Log reference](/docs/troubleshooting/log-reference) — every line the mod
+  writes.
+- [Diagnosing input](/docs/troubleshooting/diagnosing-input) — the systematic
+  check.
+- [Reporting bugs](/docs/troubleshooting/reporting-bugs) — how to file one.

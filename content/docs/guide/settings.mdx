@@ -1,0 +1,171 @@
+---
+title: "The settings screen"
+description: "Every tab of the InputBooster settings screen, what each control writes, and which controls exist but do nothing yet."
+order: 1
+group: "Settings screen"
+---
+
+<Lead>
+The settings screen is the only interface the mod has. It is organised as
+seven sections in a left rail. This page walks through all of them and names
+the config key each control writes.
+</Lead>
+
+## Opening it
+
+Two routes:
+
+- **Options → InputBooster...** — the button in the top right of the vanilla
+  options screen. This is the reliable one.
+- The key-binding screen, where the two InputBooster bindings live.
+
+<Callout variant="note" title="The README says one thing, the source does another">
+The README states that the key-binding screen has an InputBooster category. In
+the current source, `createKeyMappings()` registers both mappings with
+`KeyMapping.Category.MISC`, so they appear under Minecraft's Misc category.
+This site documents the source behaviour.
+</Callout>
+
+## The window
+
+| Property | Value |
+| --- | --- |
+| Minimum size | 380 x 260 |
+| Resizable | Yes, by the bottom-right grip |
+| Movable | Yes, by the header |
+| Scrollable | Yes, the content area only |
+| Geometry persistence | For the session only, never written to disk |
+| Apply behaviour | Immediate — every control writes as you change it |
+| Persist behaviour | The Save &amp; Close button writes to disk |
+
+The tab rail and the footer stay fixed. Only the section content scrolls, which
+is the fix that landed in 4.1.2-alpha: on a short window, controls below the
+fold used to be unreachable, including Save &amp; Close.
+
+## Overview
+
+Live state. Nothing here is a setting.
+
+| Row | Source |
+| --- | --- |
+| Engine | `InputEngine.mode()` — auto, event or poll |
+| Poll thread | Whether the polling thread is alive |
+| Rate | `currentPollHz`, or 1000 while burst mode is active |
+| Queue | `InputActionQueue.size()` against a capacity of 128 |
+| Overlay | Whether the overlay is enabled and where it is anchored |
+| Keys / Mouse | Event counters from the diagnostics manager |
+| Detected input mods | The result of the class-path scan |
+
+The Overview tab also lists the active features, the maximum CPS, and a
+60-second CPS graph from the session statistics.
+
+## Keyboard
+
+| Control | Config key | Notes |
+| --- | --- | --- |
+| Repeat guard | `keyboard_repeat_guard` | A held key counts as one press, not a stream |
+| Combo keys (Ctrl+1-5) | `combo_keys` | Applies the manual poll rate presets |
+| Resync held keys | — | Clears the held-key state in the engine |
+| Binding report | — | Says whether all twelve bindings resolved |
+
+<Callout variant="warning" title="The repeat guard is currently inert">
+`keyboard_repeat_guard` is persisted, validated and toggled, but the engine
+ignores `KeyEvent` repeat actions unconditionally — a repeat is never turned
+into an action regardless of the setting. The behaviour you get is the same
+either way. See [limitations](/docs/reference/limitations).
+</Callout>
+
+## Mouse
+
+| Control | Config key | Range |
+| --- | --- | --- |
+| CPS limiter | `cps_limiter` | on / off |
+| Max CPS | `max_cps` | 1 to 20 |
+| Click dedupe | `mouse_click_dedupe_ms` | 0 to 100 ms |
+| Scroll debounce | `mouse_scroll_debounce_ms` | 0 to 200 ms |
+| Click sounds | `click_sounds` | on / off |
+| Click sound pitch | `click_sound_pitch` | 0.5 to 2.0 |
+| Click sound volume | `click_sound_volume` | 0.0 to 1.0 |
+| CPS mode | `cps_mode` | Read from the config |
+
+The CPS mode is displayed but not edited here. It is a string in the config and
+is set by hand or by a profile.
+
+## Overlay
+
+| Control | Config key | Range |
+| --- | --- | --- |
+| Overlay enabled | `show_f3_info` | on / off |
+| Keystrokes overlay | `show_keystrokes` | on / off |
+| Engine line | `overlay_show_engine` | on / off |
+| Event counters | `overlay_show_events` | on / off |
+| Dispatch timing | `overlay_show_overhead` | on / off |
+| Position | `overlay_position` | 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right |
+| Scale | `overlay_scale` | 0.5 to 3.0 |
+| Opacity | `overlay_opacity` | 0.0 to 1.0 |
+| Mode | `overlay_mode` | 0 F3 only, 1 always |
+
+`show_f3_info` is the master switch. When it is off, none of the other overlay
+settings matter.
+
+<Callout variant="warning" title="The keystrokes overlay is not implemented">
+`show_keystrokes` is stored and validated, but there is no renderer for it in
+4.1.2-alpha. The toggle changes a config value and nothing is drawn. See
+[the overlay page](/docs/guide/overlay).
+</Callout>
+
+## Performance
+
+| Control | Config key | Range |
+| --- | --- | --- |
+| Burst mode | `burst_mode` | on / off |
+| Poll rate | `poll_rate_hz` | 60 to 1000 Hz |
+| FPS check | `fps_check_interval` | 1 to 100 ticks |
+| Auto / manual | `poll_rate_auto` | on / off |
+| Reset counters | — | Clears the session counters |
+| Force sync | — | Re-synchronises the held-key state |
+
+<Callout variant="warning" title="The FPS check interval is currently inert">
+`fps_check_interval` is persisted and validated, but the adaptive poll rate is
+recomputed on every client tick regardless of the value. The slider changes a
+number that nothing reads yet.
+</Callout>
+
+## Compatibility
+
+| Control | Config key | Notes |
+| --- | --- | --- |
+| Fallback with input mods | `compat_fallback` | Poll instead of competing for events |
+| Engine mode | `engine_mode` | 0 automatic, 1 event driven, 2 polled |
+| Custom Keyboard (ALPHA) | `custom_keyboard_handler` | Opens a warning screen when enabled |
+| Write status to log | — | Writes the compatibility status into the event log |
+
+The tab also lists the detected input mods and whether the keyboard and mouse
+event hooks are live.
+
+## Advanced
+
+| Control | Config key | Notes |
+| --- | --- | --- |
+| Safe mode | `safe_mode` | Disables a module that keeps failing |
+| Event log | `event_log` | Master switch for the in-memory log |
+| Debug mode | `debug_mode` | Verbose diagnostics |
+| Key conflict warning | `key_conflict_warn` | Warns about clashing binds |
+| Per-server profiles | `per_server_profiles` | Switch profile when the server changes |
+| Manage profiles | — | Opens the separate profiles screen |
+| Reset latency peak | — | Clears the peak drain latency |
+
+<Callout variant="warning" title="Debug mode has no verbose output yet">
+`debug_mode` is read by an accessor and displayed, but the log statements it
+would gate are not wired to it. Turning it on does not currently make the log
+more verbose.
+</Callout>
+
+## Saving
+
+Changes apply the moment you make them — the runtime reads the config
+continuously. The Save &amp; Close button writes the file.
+
+Writes are atomic: the mod creates a temporary file in the same folder, fills
+it, and moves it over the real file. A crash during the save cannot leave a
+truncated config. See [the config file](/docs/configuration/config-file).

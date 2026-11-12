@@ -1,0 +1,40 @@
+{
+  "name": "inputbooster-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Documentation for the InputBooster Minecraft client mod",
+  "scripts": {
+    "dev": "node scripts/build-search-index.mjs && next dev",
+    "build": "node scripts/build-search-index.mjs && next build && node scripts/copy-og-image.mjs",
+    "start": "node scripts/serve-export.mjs",
+    "serve": "node scripts/serve-export.mjs",
+    "typecheck": "tsc --noEmit",
+    "search:index": "node scripts/build-search-index.mjs",
+    "validate:links": "node scripts/validate-links.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "github-slugger": "^2.0.0",
+    "gray-matter": "^4.0.3",
+    "lucide-react": "^1.72.0",
+    "mermaid": "^11.12.2",
+    "motion": "^14.12.0",
+    "next": "16.4.6",
+    "next-mdx-remote": "^6.0.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "rehype-pretty-code": "^0.14.6",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1",
+    "shiki": "^4.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.5",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.4",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,56 @@
+[
+  {
+    "id": "getting-started",
+    "label": "Getting Started",
+    "order": 1,
+    "description": "What InputBooster is, what it needs, and how to get a first session running."
+  },
+  {
+    "id": "installation",
+    "label": "Installation",
+    "order": 2,
+    "description": "Loader-specific install steps, version matching and safe rollback."
+  },
+  {
+    "id": "guide",
+    "label": "Gamer Guide",
+    "order": 3,
+    "description": "The settings window, input recovery, combat and movement tools, overlay, profiles and replay."
+  },
+  {
+    "id": "configuration",
+    "label": "Configuration Reference",
+    "order": 4,
+    "description": "Every key in inputbooster.properties, its range, its default and what actually reads it."
+  },
+  {
+    "id": "developers",
+    "label": "Developer Documentation",
+    "order": 5,
+    "description": "Architecture, the input pipeline, feature managers, the settings UI, builds and tests."
+  },
+  {
+    "id": "reference",
+    "label": "Technical Reference",
+    "order": 6,
+    "description": "Action semantics, queue rules, mixin inventory, schema tables and known limits."
+  },
+  {
+    "id": "troubleshooting",
+    "label": "Troubleshooting",
+    "order": 7,
+    "description": "Read the log, diagnose the common failures, and report a useful bug."
+  },
+  {
+    "id": "contributing",
+    "label": "Contributing",
+    "order": 8,
+    "description": "How to propose a change, match the code conventions and keep the mixin rules intact."
+  },
+  {
+    "id": "releases",
+    "label": "Releases",
+    "order": 9,
+    "description": "Version history, supported jar matrix and the status of the archived API."
+  }
+]

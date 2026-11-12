@@ -1,0 +1,146 @@
+---
+title: "Versioning"
+description: "How InputBooster version numbers, jar names and the config schema version relate to each other."
+order: 3
+group: "Releases"
+---
+
+<Lead>
+There are three different version numbers in this project: the mod version,
+the config schema version and the Minecraft version. They are unrelated and
+are easy to confuse.
+</Lead>
+
+## The three versions
+
+| Version | Example | Where it lives |
+| --- | --- | --- |
+| The mod version | `4.1.2-alpha` | The jar name and `InputBoosterMod.MOD_VERSION` |
+| The config schema | `305` | `config_version` in the properties file |
+| The Minecraft version | `26.2`, `26.3` | The `mc262` / `mc263` suffix and the dependency ranges |
+
+<Callout variant="info" title="The schema version is not the mod version">
+`4.1.2-alpha` writes `config_version=305`. The two numbers are unrelated. The
+schema version only changes when the meaning of a config key changes.
+</Callout>
+
+## The mod version scheme
+
+```text
+MAJOR.MINOR.PATCH-PRERELEASE
+   │      │     │        │
+   │      │     │        └─ alpha, beta, or nothing for a stable release
+   │      │     └────────── the patch number
+   │      └──────────────── the minor number
+   └─────────────────────── the major number
+```
+
+| Stage | Meaning |
+| --- | --- |
+| `alpha` | New or rewritten code. May crash, may not have been run in a client |
+| `beta` | Feature complete for the line, still being tested |
+| Stable | No suffix. A release that has been tested and does not crash on launch |
+
+The current release is `4.1.2-alpha`. The last stable build is `4.0.3-stable`.
+
+<Callout variant="warning" title="Alpha means alpha">
+The 4.1.x line contains a rewritten input engine and a rewritten settings
+screen. Both are new code that has not been tested in a running client. The
+repository itself recommends `4.0.3-stable` until the alpha has been tested.
+</Callout>
+
+## The jar name
+
+```text
+inputbooster-<mod version>-<loader>-mc<minecraft>.jar
+
+inputbooster-4.1.2-alpha-fabric-mc263.jar
+           │            │      │    │
+           │            │      │    └─ 263 = Minecraft 26.3
+           │            │      └────── mc
+           │            └───────────── fabric or nf
+           └────────────────────────── the mod version
+```
+
+The loader flavour is also in `gradle.properties`:
+
+| Project | Property | Value |
+| --- | --- | --- |
+| NeoForge | `mod_version` | `4.1.2-alpha-nf-mc262` |
+| Fabric | `mod_version` | `4.1.2-alpha-fabric` |
+
+The Fabric project appends the Minecraft suffix at build time:
+
+```groovy
+version = "${mod_version}-mc${minecraft_version.replace('.', '')}"
+```
+
+<Callout variant="info" title="Why the jar names differ per loader">
+The NeoForge project hardcodes the Minecraft suffix in `gradle.properties`,
+because it builds one target. The Fabric project builds both, so it derives
+the suffix from the `minecraft_version` property.
+</Callout>
+
+## The config schema version
+
+`config_version` records the shape of the config file.
+
+| Schema | Introduced | Change |
+| --- | --- | --- |
+| 305 | 4.1.0-alpha | Nine new engine and overlay keys |
+| 303 and earlier | 3.x | Older schema, migrated on load |
+
+The schema version is bumped when a key changes meaning, not when a key is
+added for a new feature in a way that is backwards compatible. The migration
+is small on purpose: it renames three legacy keys and nothing else.
+
+```java
+public static final int CONFIG_VERSION = 305;
+```
+
+<Callout variant="note" title="Migration is idempotent">
+The migration writes the new version back into the properties object, and the
+file is written again on the next save. A migrated file stops migrating.
+</Callout>
+
+## How a release is cut
+
+The CI pipeline publishes a release when a version tag is pushed, or on a
+branch push.
+
+<Steps>
+  <Step title="The version is read">
+    From the tag, or from `mod_version` in `gradle.properties` with the loader
+    flavour stripped.
+  </Step>
+  <Step title="The three jars are built">
+    NeoForge 26.2, Fabric 26.2 and Fabric 26.3, each on Temurin 25.
+  </Step>
+  <Step title="The jars are verified">
+    The release job refuses to publish unless all three are present. The
+    Fabric job checks the dependency range form first.
+  </Step>
+  <Step title="The release is published">
+    All three jars are attached, the notes are generated from the git log
+    since the previous tag, and a prerelease flag is set when the version
+    contains `alpha` or `beta`.
+  </Step>
+</Steps>
+
+<Callout variant="info" title="A version is published once">
+A branch push skips the release if the tag already exists, so pushing to
+`main` twice does not publish two releases.
+</Callout>
+
+## The archived API version
+
+The API repository has its own version line, ending at `3.1.0`. It targets
+Minecraft `>=1.21 <1.22` and Java 21, and it is not connected to the 26.x
+tree. See the [archived API page](/docs/releases/archived-api).
+
+## Related pages
+
+- [Changelog](/docs/releases/changelog) — what changed in each release.
+- [Support matrix](/docs/releases/support-matrix) — which versions are
+  supported.
+- [Updating](/docs/installation/updating) — moving between versions.

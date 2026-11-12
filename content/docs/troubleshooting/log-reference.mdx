@@ -1,0 +1,239 @@
+---
+title: "Log reference"
+description: "Every line InputBooster writes to the log, what it means and what to do about it."
+order: 2
+group: "Fix it"
+---
+
+<Lead>
+The mod writes to the standard Minecraft log with the `inputbooster` logger
+and a `[InputBooster]` prefix on most lines. This page is the decoder.
+</Lead>
+
+## Startup
+
+```text
+[InputBooster] Starting v4.1.2-alpha
+[Mixin] All client hooks present.
+[Mixin] Screen hooks: setScreenAndShow=true, setScreen=false
+[inputbooster-config] Loading config from .../config/inputbooster.properties
+[inputbooster-config] ✓ Config loaded successfully (config version 305)
+[Input] Polling thread started at 200 Hz.
+[InputBooster] Ready!
+```
+
+| Line | Meaning |
+| --- | --- |
+| `Starting v...` | Initialisation began |
+| `All client hooks present.` | Every vanilla method the mod needs still exists |
+| `Screen hooks: ...` | Which screen hook applied. **At least one must be `true`** |
+| `Loading config from ...` | The config file was found and read |
+| `Config loaded successfully` | The file was applied |
+| `Polling thread started at N Hz.` | The sampler is running |
+| `Ready!` | Everything is up |
+
+<Callout variant="info" title="`Ready!` is the only line you need">
+If that line is present, the mod is loaded and working. Everything before it
+tells you which optional parts applied.
+</Callout>
+
+## Startup problems
+
+```text
+[InputBooster] Fatal init error! InputBooster is disabled for this session.
+```
+
+Initialisation threw. The mod has disabled itself and nothing in it will work
+for this session. The stack trace above the line is the cause. The mod does
+not retry: an earlier version logged the same trace every tick and could
+start a second polling thread per attempt.
+
+```text
+[Mixin] Missing vanilla method(s): tick — input handling is degraded. The mod may need an update for this Minecraft version.
+```
+
+One of the critical vanilla methods changed. The mod still runs, but part of
+the input path is off.
+
+```text
+[Mixin] No screen hook found; screen state falls back to the HUD check each tick.
+```
+
+Neither `setScreenAndShow` nor `setScreen` applied. The screen state comes
+from the HUD instead, which is less reliable. This is the first thing to
+check when a space typed in chat becomes a jump.
+
+```text
+[Mixin] pick-block hook unavailable; pick-block input is disabled.
+```
+
+The pick-block accessor did not apply. Everything else works; the pick-block
+key does nothing. The line is printed once per session.
+
+```text
+[Input] Could not read every key binding; using vanilla defaults for the rest.
+```
+
+One or more of the twelve tracked bindings could not be read. The mod fell
+back to the vanilla default for those slots. The Keyboard tab of the settings
+screen reports whether all twelve resolved.
+
+## Configuration
+
+```text
+[inputbooster-config] Migrating config from version 303 to 305
+```
+
+The file was on an older schema. Three legacy keys were renamed and the
+version was written back.
+
+```text
+[inputbooster-config] Config entries reset to defaults (invalid or unparsable): poll_rate_hz=2000, combo_keys=maybe
+```
+
+One warning per load, listing every key that had to be reset. A boolean is
+listed by name; a number is listed as `key=value`. The full list of checked
+keys is in [validation](/docs/configuration/validation).
+
+```text
+[inputbooster-config] No config found, creating defaults...
+```
+
+First launch. The mod writes a config file with every default in it.
+
+```text
+[inputbooster-config] Failed to load config, using defaults
+```
+
+The file could not be read at all. The defaults are used and the game starts.
+
+```text
+[inputbooster-config] ✓ Config saved to .../config/inputbooster.properties
+```
+
+The file was written. This happens on save and on shutdown.
+
+## Input engine
+
+```text
+[Compat] Keyboard/mouse event hooks are live.
+```
+
+The first keyboard or mouse event arrived through the mixins. From this point
+on, event-driven mode is available.
+
+```text
+[Input] Polling error
+```
+
+A failure inside the poller. It is printed at most five times; the poller
+keeps running. A dead poller silently disables the whole mod, so the thread
+survives a failure on purpose.
+
+```text
+[Input] Polling thread stopped.
+```
+
+Normal shutdown, or the poller could not start.
+
+```text
+[InputBooster] Shutting down...
+```
+
+The mod is closing. It stops the poller, waits for it, clears the queue, saves
+the config and releases the keyboard.
+
+## Safe Mode
+
+```text
+[SafeMode] Module 'movement' disabled after 5 errors (java.lang.NullPointerException).
+[SafeMode] Module 'movement' re-enabled after a quiet period.
+```
+
+Five errors in ten seconds disabled that module. The rest of the mod kept
+running. The module is re-enabled automatically once the window is quiet.
+
+<Callout variant="note" title="The module names">
+Safe Mode can act on seven modules: `input`, `combat`, `movement`, `debug`,
+`profiles`, `anti_idle` and `replay`. An error from any other source — the
+client tick, for example — is counted and logged but cannot disable a module.
+</Callout>
+
+## Features
+
+```text
+[BurstMode] FPS dropped from 120 to 80 (33%), bursting to 1000 Hz for 3s
+[BurstMode] Burst mode ended, returning to normal rate.
+```
+
+Burst mode engaged and disengaged. The action bar shows the same message
+when `show_action_bar` is on.
+
+```text
+[Replay] Nothing recorded yet.
+[Replay] Recording stopped early: buffer full, 12 event(s) not stored.
+[Replay] Input queue stayed full; dropped an event from playback.
+[Replay] Playback finished with 1 dropped event(s).
+```
+
+Replay problems. The first means playback was requested with an empty
+recording. The second means the 4000-event limit was reached. The third and
+fourth mean the queue was full for long enough that playback gave up on an
+event.
+
+```text
+[Profile] Loaded 3 profile(s)
+[Profile] Loaded profile: Competitive
+[Profile] Moved unreadable profile file to inputbooster_profiles.json.corrupt (JsonSyntaxException)
+```
+
+Profile loading. The third line means the profile file was not valid JSON and
+was moved aside; the game continued with no profiles.
+
+```text
+[ServerProfile] Server detection degraded (java.lang.NoSuchFieldException); per-server profiles fall back to a stable identifier.
+```
+
+The reflective server lookup failed. The mod keeps working with a stable
+identifier instead of throwing on the client tick.
+
+```text
+[Input] Key conflict detection unavailable on this Minecraft version.
+```
+
+The key binding list could not be read through reflection, so no conflict
+check ran. The detector is optional.
+
+## Per-action failures
+
+```text
+[InputBooster] ATTACK_PRESSED failed: java.lang.NullPointerException
+```
+
+One action threw. It is logged, reported to Safe Mode, and the queue keeps
+draining. A repeating version of this line is what Safe Mode counts.
+
+```text
+[InputBooster] WTapAssist error: <message>
+```
+
+The W-tap helper threw while applying the velocity change. It is caught
+separately so it cannot abort the drain.
+
+## Where the log lives
+
+| Launcher | Path |
+| --- | --- |
+| Official | `.minecraft/logs/latest.log` |
+| MultiMC / Prism | `<instance>/.minecraft/logs/latest.log` |
+| Modrinth App | The instance's `logs` folder |
+
+The file is rotated at every launch. `latest.log` is the current session;
+the previous one is `2026-01-01-1.log.gz` and so on.
+
+## Related pages
+
+- [Common issues](/docs/troubleshooting/common-issues) — the fixes.
+- [Diagnosing input](/docs/troubleshooting/diagnosing-input) — the systematic
+  check.
+- [Reporting bugs](/docs/troubleshooting/reporting-bugs) — what to include.

@@ -1,0 +1,160 @@
+---
+title: "First session"
+description: "Walk through the InputBooster settings screen once, from the options button to a verified working pipeline."
+order: 4
+group: "Start here"
+---
+
+<Lead>
+Ten minutes with the settings screen will tell you more than any description.
+This page is a checklist: open the screen, confirm the engine is running, try
+one recovery case, then set the values you actually want.
+</Lead>
+
+## 1. Open the settings
+
+<Steps>
+  <Step title="Open the vanilla options screen">
+    Press <Kbd>Esc</Kbd> in game, or use the menu. The InputBooster button sits
+    in the top right of the options screen.
+  </Step>
+  <Step title="Read the Overview tab first">
+    The Overview tab is live state, not settings. It tells you whether the
+    poller is running, what rate it is using, how deep the queue is and which
+    input mods were detected.
+  </Step>
+  <Step title="Check the Compatibility tab">
+    This is where you find out whether the event hooks applied. If the event
+    source is live, the engine is running in event-driven mode.
+  </Step>
+  <Step title="Try the performance case">
+    Join a world and tap your attack key quickly. At low FPS the mod recovers
+    taps vanilla would swallow.
+  </Step>
+  <Step title="Set your values and close">
+    Changes apply as you make them. The Save &amp; Close button writes them to
+    disk.
+  </Step>
+</Steps>
+
+<Callout variant="note" title="Two ways in">
+The options button is the reliable route. The README also mentions an
+InputBooster category on the key-binding screen, but in the current source the
+two key mappings are registered under Minecraft's Misc category, so they appear
+there instead. See [key binds](/docs/guide/keybinds).
+</Callout>
+
+## 2. The window itself
+
+The settings window is a real window, not a fixed overlay.
+
+- Drag the header to move it.
+- Drag the bottom-right grip to resize it, down to 380x260.
+- Scroll the content with the wheel or the scrollbar when a section is taller
+  than the window.
+- The tab rail and the footer stay fixed while the content scrolls.
+
+The chosen size and position are kept for the session. They are deliberately
+not written to the config file: they are a view preference, not a mod setting.
+
+## 3. Read the Overview tab
+
+<Badge variant="accent">Live</Badge> The Overview tab shows values that change
+while you play:
+
+| Row | What it means |
+| --- | --- |
+| Engine | `auto`, `event` or `poll` — how the engine is currently observing input |
+| Poll thread | `running` or `stopped` |
+| Rate | The current sampling rate in Hz |
+| Queue | Queued actions against the 128-entry bound |
+| Overlay | Whether the overlay is on and where it is drawn |
+| Keys / Mouse | Event counters since start |
+| Detected input mods | Known input mods found on the class path |
+
+<Callout variant="warning" title="If the poll thread says stopped">
+The poller is a daemon thread started during initialisation. If it stopped, the
+mod is not sampling input. Check the log for `[Input] Polling thread stopped.`
+and see [diagnosing input](/docs/troubleshooting/diagnosing-input).
+</Callout>
+
+## 4. Confirm the engine mode
+
+The Compatibility tab shows the resolved engine mode and the reason behind it.
+
+| Situation | Mode you should see |
+| --- | --- |
+| No known input mod, event hooks live | `event` |
+| No known input mod, hooks not live | `poll` |
+| Controlify, Midnight Controls, Controllable, Sodium, Iris or Zoomify present | `poll` |
+| You forced Event mode but the hooks never fired | `poll` with a fallback reason |
+
+The full rules are in [engine modes](/docs/developers/engine-modes).
+
+## 5. Try one recovery case
+
+The clearest demonstration is a tap that vanilla would miss:
+
+1. Open a world.
+2. Throttle your frame rate deliberately, or use a machine that cannot hold
+   60 FPS.
+3. Tap the attack key in short bursts.
+4. Watch the queue depth in the Overview tab while you tap.
+
+A tap that begins and ends inside one tick produces an `ATTACK_PRESSED` action
+that the drainer executes at the start of the next tick. The server sees an
+ordinary attack.
+
+<Callout variant="danger" title="Do not measure with a stopwatch">
+The mod publishes no FPS or latency improvement figure, because the repository
+states that no client benchmark exists. The internal latency profiler measures
+queue-to-drain time inside the mod, which is not a comparison against vanilla.
+See [limitations](/docs/reference/limitations).
+</Callout>
+
+## 6. Set the values you want
+
+A reasonable starting point for most players:
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| Poll rate | Auto | Follows the frame rate instead of a fixed number |
+| Burst mode | On | Pushes to 1000 Hz for three seconds after a frame-rate drop |
+| CPS limiter | On, 20 | Caps your click rate without changing your aim |
+| Engine mode | Automatic | Picks the right source for your mod set |
+| Overlay | On, F3 only | Visible while debugging, invisible otherwise |
+| Safe mode | On | Disables a feature that keeps failing, instead of the client |
+| Alpha keyboard handler | Off | It is alpha; enable it deliberately |
+
+Every one of these is a real config key. The full list with ranges and defaults
+is in the [configuration reference](/docs/configuration/keys).
+
+## 7. Save and verify
+
+Close the window with Save &amp; Close. The config file is written atomically:
+a temporary file is created, filled and then moved into place, so a crash
+during the save cannot leave you with a half-written file.
+
+<Command command="type .minecraft\config\inputbooster.properties" block label="Windows" />
+
+Then confirm the values took:
+
+```text
+poll_rate_auto=true
+poll_rate_hz=200
+cps_limiter=true
+max_cps=20
+engine_mode=0
+safe_mode=true
+config_version=305
+```
+
+## What to read next
+
+- [The settings screen](/docs/guide/settings) — all seven tabs, control by
+  control.
+- [Combat and movement](/docs/guide/combat-and-movement) — what the movement
+  helpers actually do to your velocity.
+- [Profiles](/docs/guide/profiles) — switching settings per server.
+- [Common issues](/docs/troubleshooting/common-issues) — when something does
+  not work.

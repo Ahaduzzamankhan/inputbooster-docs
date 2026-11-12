@@ -1,0 +1,131 @@
+---
+title: "Input recovery"
+description: "How a tap that starts and ends between two ticks is recovered, what the mod does with it, and what it cannot recover."
+order: 3
+group: "Input recovery"
+---
+
+<Lead>
+A tick is 50 milliseconds long. Minecraft reads most gameplay input once per
+tick, so a tap that starts and ends inside that window is never seen.
+InputBooster samples faster than the tick and preserves the edge.
+</Lead>
+
+## The problem
+
+Vanilla's keyboard and mouse handlers tell the player what is true at the
+moment the tick runs. Consider a 30&nbsp;ms tap on the attack key:
+
+```text
+tick ──────────────► tick ──────────────► tick
+      │                              │
+      └─ down ──┬── up ─┘            └─ attack happens here, if at all
+```
+
+If the key is already released when the tick runs, the press is gone. Nothing
+was queued, so no attack happens. The same window swallows a jump, a use, and
+a sprint key.
+
+The window is wider when the frame rate is low, and it widens further during a
+stutter — exactly when input matters most.
+
+## The recovery
+
+The mod samples the platform key state at a configurable rate, from 60 to
+1000&nbsp;Hz. A 30&nbsp;ms tap at 200&nbsp;Hz is several samples wide, so the
+down transition and the up transition are both observed.
+
+The result is one action per physical edge:
+
+```text
+sample ──► down seen ──► action queued ──► drained at the next tick head
+             up seen   ──► release queued ──► drained with it
+```
+
+Two rules keep this honest:
+
+1. **Nothing executes while a screen is open.** A click in a chest is a chest
+   click. The decision is made on the game thread, from the game's own
+   show-screen call.
+2. **Vanilla's own action is suppressed for that tick.** If the mod already
+   fired the attack, vanilla must not fire a second one for the same physical
+   click.
+
+<Callout variant="note" title="Duplicate suppression is structural">
+The state machine holds one boolean per tracked binding. A press seen by the
+event hook first makes the poller's later look a no-op, and the other way
+round. There is no timing window and no "already handled" flag that could leak
+between ticks.
+</Callout>
+
+## Where the recovered action goes
+
+The drainer runs at the head of the client tick and executes queued actions
+through vanilla's own calls:
+
+| Action | What runs |
+| --- | --- |
+| Attack | `gameMode.attack(player, target)` plus the swing animation |
+| Use | `gameMode.useItem(player, MAIN_HAND)` — only when the crosshair hits nothing |
+| Jump | `player.jumpFromGround()` when the player can leave the ground |
+| Sprint | `player.setSprinting(true)` |
+| Sneak | `player.setSneaking(true)` |
+| Forward release | The W-tap helper runs |
+| Drop | `player.dropSelectedItem()` |
+| Pick block | The vanilla pick-block helper, only over a block |
+
+<Callout variant="warning" title="Not every action is recovered">
+Only actions in the mod's twelve tracked bindings are observed. A key that
+vanilla reads outside the tick loop — typing in chat, for instance — is not
+part of this path. And the mod never invents an action: there is no press, so
+there is no action.
+</Callout>
+
+## Counting
+
+The mod keeps a `recoveredInputs` counter, incremented every time an action is
+successfully queued. The Overview tab shows the session total, and the session
+statistics track an estimate of how many inputs would have been missed without
+the mod.
+
+<Callout variant="warning" title="The estimate is a heuristic">
+The estimate is computed from the FPS history and the recovered count using a
+fixed miss-rate formula. It is an estimate, not a measurement, and it is not
+comparable to any other client. Treat it as a rough indicator, not a number to
+quote.
+</Callout>
+
+## The latency profiler
+
+`LatencyProfiler` measures the time between an action being stamped at capture
+and being drained on the game thread. It keeps a rolling 128-sample window
+and a session-wide peak.
+
+<Callout variant="danger" title="This is not a latency claim">
+Queue-to-drain time inside the mod is not hardware latency, not frame time,
+and not a comparison with vanilla. The repository states that no client
+benchmark exists, so this site publishes no FPS or latency-improvement figure.
+</Callout>
+
+The Advanced tab can reset the peak. The profiler itself is not shown on the
+overlay.
+
+## When recovery does not happen
+
+- **A screen is open.** The queue is cleared and the poller follows the state
+  silently, so a key held through a pause is not reported as a fresh press
+  when play resumes.
+- **The client is paused or there is no player.** Same silent follow.
+- **The window loses focus.** The engine releases every held key.
+- **The queue is full.** 128 entries is the bound. Beyond it, new actions are
+  rejected and counted as dropped, not silently discarded.
+- **The CPS limiter blocks the click.** The action is dropped on purpose, and
+  vanilla's attack is suppressed for that tick so the blocked click does not
+  sneak through as a vanilla one.
+
+## Related pages
+
+- [Combat and movement](/docs/guide/combat-and-movement) — the helpers built on
+  top of recovery.
+- [Input pipeline](/docs/developers/input-pipeline) — the code path in detail.
+- [Actions](/docs/reference/actions) — every action and exactly what it does.

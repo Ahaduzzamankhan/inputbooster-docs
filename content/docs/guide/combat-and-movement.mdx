@@ -1,0 +1,177 @@
+---
+title: "Combat and movement"
+description: "What sprint fix, W-tap, anti-idle, auto-strafe, the CPS limiter and burst mode actually do, with their exact conditions."
+order: 4
+group: "Input recovery"
+---
+
+<Lead>
+These helpers are small, conditional and easy to misread. Each one has a
+precondition, and most of them do nothing unless that precondition holds.
+This page lists the conditions exactly as the code has them.
+</Lead>
+
+## Movement helpers
+
+### Sprint fix and auto-sprint
+
+`SprintManager` runs only when `sprint_fix` is enabled. It has two halves:
+
+- **Auto-sprint** (`auto_sprint`): sets `player.setSprinting(true)` whenever
+  forward is held, the player is not sneaking, and food level is above 6. It
+  returns early, so the manual sprint key is not consulted in that case.
+- **Manual sprint**: if the sprint key is held together with forward, and the
+  player is not sneaking, and food level is above 6, the player is set to
+  sprinting.
+
+| Condition | Effect |
+| --- | --- |
+| Forward held, not sneaking, food > 6 | Sprinting |
+| Food at 6 or below | No sprint |
+| Sneaking | No sprint |
+
+<Callout variant="note" title="Auto-sprint needs sprint fix">
+`auto_sprint` is checked inside `SprintManager`, and the whole manager is
+skipped when `sprint_fix` is off. Turning off sprint fix turns off auto-sprint
+too, whatever the `auto_sprint` value says.
+</Callout>
+
+### W-tap assist
+
+`WTapAssist` acts on the tick **after** forward is released:
+
+```java
+Vec3 vel = player.getDeltaMovement();
+player.setDeltaMovement(vel.x * 0.6, vel.y, vel.z * 0.6);
+```
+
+Horizontal velocity is multiplied by 0.6 on the tick following the release of
+forward. The velocity is only touched when forward is genuinely up.
+
+This is a local velocity change. It does not send extra packets, and it does
+not change what the server validates.
+
+### Anti-idle
+
+`AntiIdleManager` adds `0.0001` degrees to the player's yaw every 200 ticks
+— roughly every ten seconds. That is far below the threshold at which the
+server would consider the player to be turning.
+
+It exists to keep a session from being treated as idle. It is not an
+anti-AFK that plays for you.
+
+### Auto-strafe
+
+`AutoStrafeManager` applies a yaw nudge, and every one of these must hold:
+
+| Condition | Value |
+| --- | --- |
+| `auto_strafe` enabled | yes |
+| The player is sprinting | required |
+| FPS | 40 or lower |
+| Forward is held | required |
+| Exactly one strafe key is held | left xor right |
+
+The applied delta is `±0.4 * (40 / FPS)` degrees. At 20 FPS that is 0.8
+degrees per tick; at 40 FPS it is 0.4.
+
+<Callout variant="info" title="Why the FPS condition exists">
+Above 40 FPS the game is fast enough that vanilla movement already looks
+smooth, and the correction would be visible. The mod only applies it when the
+frame rate is low enough to need help.
+</Callout>
+
+## The CPS limiter
+
+`CpsLimiter` caps how many attacks per second reach the game. It is a token
+bucket: the bucket refills at `max_cps` tokens per second and holds at most
+`max_cps` tokens, so the long-run average is capped while short bursts pass
+through. The bucket starts full, so your first burst after joining a world is
+not swallowed.
+
+### The four modes
+
+The effective cap is computed once per second and reused for that whole
+second, so two clicks in the same second always see the same limit.
+
+| Mode | Effective cap |
+| --- | --- |
+| `FIXED` | `max_cps` |
+| `HUMANIZED` | `max_cps` minus a deterministic jitter of 0 to 2 |
+| `WEAPON_AWARE` | `min(max_cps, 16)` |
+| `COOLDOWN` | `min(max_cps, 18)`, plus a minimum gap between accepted clicks |
+
+`COOLDOWN` additionally requires a gap of `max(35 ms, 1000 / max_cps)` between
+two accepted clicks. The gap is computed in milliseconds first and converted
+to nanoseconds once.
+
+<Callout variant="warning" title="The CPS mode is not validated">
+`cps_mode` is read, upper-cased and stored, but it is never checked against
+the four known names. An unknown value falls through to the `FIXED` branch of
+the switch, because that is the default arm.
+</Callout>
+
+### What a blocked click does
+
+When the limiter rejects an attack, the mod still suppresses vanilla's attack
+for that tick. A blocked click stays blocked; it does not leak through as a
+vanilla click.
+
+### Modes and the `max_cps` slider
+
+`max_cps` ranges from 1 to 20. `WEAPON_AWARE` and `COOLDOWN` can only lower
+it, never raise it.
+
+## Burst mode
+
+With `burst_mode` enabled, the mod watches the frame rate. When it drops by
+more than 20 percent in one tick — and the previous frame rate was above 10 —
+the poller runs at 1000&nbsp;Hz for 60 ticks, about three seconds.
+
+```text
+FPS dropped from 120 to 80 (33%), bursting to 1000 Hz for 3s
+```
+
+The action bar confirms the burst and its end when `show_action_bar` is on.
+
+<Callout variant="note" title="Burst mode overrides your rate">
+While bursting, the polling thread samples at 1000&nbsp;Hz regardless of
+`poll_rate_hz` and regardless of whether automatic mode is on. The Overview
+tab shows 1000 while a burst is active.
+</Callout>
+
+## Click sounds
+
+`click_sounds` is off by default. When it is on, a click sound plays for
+actions the mod executed — but only for physical input, never for a replayed
+event.
+
+| Setting | Range | Default |
+| --- | --- | --- |
+| `click_sound_pitch` | 0.5 to 2.0 | 1.35 |
+| `click_sound_volume` | 0.0 to 1.0 | 0.35 |
+
+## Safe mode
+
+If a feature throws repeatedly, safe mode disables that feature instead of
+letting it take the client down. Five errors within ten seconds for one
+module disables that module; it is re-enabled after a quiet window.
+
+The modules safe mode knows about are `input`, `combat`, `movement`, `debug`,
+`profiles`, `anti_idle` and `replay`. The `input` module is the execution
+layer itself, so safe mode can stop the mod from touching the player while the
+rest of the mod keeps running.
+
+<Callout variant="info" title="How to tell">
+The log line `Safe Mode disabled module 'x' after repeated errors` names the
+module. A feature that stops working after a crash elsewhere in the session is
+usually safe mode, not a bug in the feature.
+</Callout>
+
+## Related pages
+
+- [Input recovery](/docs/guide/input-recovery) — the core mechanic these
+  helpers build on.
+- [The overlay](/docs/guide/overlay) — watching the rate and counters live.
+- [Feature managers](/docs/developers/feature-managers) — the code behind
+  these helpers.

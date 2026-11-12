@@ -1,0 +1,151 @@
+---
+title: "Replay and logs"
+description: "The R and K replay bindings, what a recording contains, and how the in-memory event log works."
+order: 7
+group: "Visibility"
+---
+
+<Lead>
+Replay is a testing tool, not a macro. It records the actions the mod queued
+and plays them back, so you can check that a sequence of inputs behaves the
+same when it is not you pressing the keys.
+</Lead>
+
+## Using it
+
+| Key | Action |
+| --- | --- |
+| <Kbd>R</Kbd> | Start or stop recording |
+| <Kbd>K</Kbd> | Play the recording back |
+
+The current state is shown with an action-bar message when you toggle
+recording:
+
+```text
+InputBooster replay REC
+InputBooster replay STOP
+```
+
+Playback does nothing when there is no recording. The log says
+`[Replay] Nothing recorded yet.`
+
+## What a recording contains
+
+A recording stores the **actions the mod queued**, not raw hardware presses
+and not events the drainer later rejected. A replay therefore reproduces
+exactly what the mod itself would have executed.
+
+Each frame is an action plus the offset in nanoseconds from the start of the
+recording. Playback replays the offsets, so the timing of the original
+sequence is preserved.
+
+## The rules
+
+### It never fights you
+
+While physical input is waiting in the queue, playback holds back and rewinds
+its clock slightly so it stays in sync. A recording can never be injected on
+top of a live click.
+
+```java
+if (InputActionQueue.pendingPhysical() > 0) {
+    playStart += elapsed / 100; // rewind slightly to stay in sync
+    return;
+}
+```
+
+### It never runs behind a screen
+
+Playback only advances when the player owns the keyboard. Opening a chest
+pauses it. Without this, the drainer would clear the queue behind the screen
+and the recording would silently lose events.
+
+### It never double-fires
+
+Replayed events are tagged with `Origin.REPLAY`. A replayed attack does not
+tick the hit counter, does not add to the CPS graph and does not play the
+click sound.
+
+### A full queue pauses, it does not skip
+
+If the queue is full when playback tries to submit an event, the index is **not**
+advanced. The event is retried on the next tick. After 20 consecutive stalled
+ticks — about a second — that one event is dropped and counted.
+
+## Limits
+
+| Property | Value |
+| --- | --- |
+| Maximum events | 4000 |
+| Storage | In memory only, never written to disk |
+| Lifetime | Ends with the session |
+| Truncation | Recorded events past the limit are counted, not stored |
+
+If a recording hits the limit, stopping it logs:
+
+```text
+[Replay] Recording stopped early: buffer full, 12 event(s) not stored.
+```
+
+<Callout variant="note" title="Why the limit exists">
+4000 events at a normal click rate is a long recording. The bound exists so a
+long session cannot grow the buffer without limit.
+</Callout>
+
+## The event log
+
+`EventLog` is a bounded in-memory list of the last 80 events, each stamped
+with the wall-clock time to the second.
+
+| Property | Value |
+| --- | --- |
+| Maximum entries | 80 |
+| Storage | In memory, never written to disk |
+| Master switch | `event_log` |
+
+Events it records include:
+
+```text
+12:41:03 InputBooster initialized
+12:41:07 Attack queued
+12:41:07 Entity attack fired
+12:41:11 Error in input: NullPointerException
+12:41:11 Safe Mode disabled module 'input' after repeated errors
+```
+
+<Callout variant="warning" title="There is no screen for the event log">
+The log is written and it is bounded and it is correct, but in 4.1.2-alpha
+there is **no viewer**. The Advanced tab has a toggle for it, and the
+Compatibility tab can write a compatibility status line into it, but nothing
+renders the list. The only ways to see it are the internal `snapshot()` and
+`latest()` accessors.
+</Callout>
+
+## Session statistics
+
+The Overview tab shows a 60-second CPS graph built from one-second buckets.
+The session statistics track:
+
+| Value | Source |
+| --- | --- |
+| Session start time | Wall clock at construction |
+| Uptime | Monotonic clock |
+| Recovered inputs | The `recoveredInputs` counter |
+| Estimated missed inputs | A heuristic from the FPS history |
+| Poller alive | Whether the polling thread is running |
+| CPS history | 60 one-second buckets |
+
+<Callout variant="info" title="The estimated figure is a heuristic">
+It is computed from the recovered count and the current frame rate using a
+fixed miss-rate formula. It is an estimate, it is not a measurement, and it
+is not comparable to another client's number.
+</Callout>
+
+## Related pages
+
+- [Key binds](/docs/guide/keybinds) — the R and K bindings and the Ctrl+1-5
+  presets.
+- [Troubleshooting](/docs/troubleshooting/common-issues) — what to do when
+  replay does nothing.
+- [Feature managers](/docs/developers/feature-managers) — the replay and log
+  code.

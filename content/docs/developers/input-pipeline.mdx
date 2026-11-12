@@ -1,0 +1,285 @@
+---
+title: "Input pipeline"
+description: "The full path of one input action: capture, edge detection, dispatch, queue, drain and suppression."
+order: 2
+group: "Internals"
+---
+
+<Lead>
+One physical press becomes at most one action, queued once, drained once, and
+suppressed once. This page follows that path through the code.
+</Lead>
+
+## The whole path
+
+<Mermaid
+  chart={`flowchart LR
+    A[Raw platform state] -->|poll thread| B[InputEngine.pollRaw]
+    C[KeyboardHandlerMixin] -->|HEAD, no cancel| D[KeyboardProcessor]
+    E[MouseHandlerMixin] -->|HEAD, no cancel| F[MouseProcessor]
+    D --> G[InputEngine.onKeyState]
+    F --> G
+    B --> H[KeyStateManager.updateSlot]
+    G --> H
+    H -->|changed| I[InputEventDispatcher.submit]
+    I --> J[InputActionQueue 128]
+    J -->|tick HEAD| K[InputDrainer.drainAll]
+    K --> L[Vanilla client call]
+    K --> M[markAttackHandled / markUseHandled]
+    M -->|once per tick| N[startAttack / startUseItem suppressed]`}
+  caption="Two sources, one state machine, one queue, one drain point."
+/>
+
+## Stage 1 — capture
+
+### The poller
+
+`InputPollingThread` is a daemon thread. It samples, hands the sample to the
+engine, and parks for the remainder of the interval:
+
+```java
+long targetNs = 1_000_000_000L / hz;
+long elapsed  = System.nanoTime() - loopStart;
+long sleepNs  = targetNs - elapsed;
+while (sleepNs > 0 && running.get()) {
+    LockSupport.parkNanos(sleepNs);
+    sleepNs = targetNs - (System.nanoTime() - loopStart);
+}
+```
+
+`LockSupport.parkNanos` keeps sub-millisecond resolution. `Thread.sleep` is
+millisecond-quantised on many platforms and drifts badly at high rates. Drift
+is absorbed by never sleeping when the loop is already behind.
+
+The poller is gated. When the game is paused, there is no player, a screen is
+open or the mod is shutting down, it follows the state **silently**:
+
+```java
+if (gated) {
+    engine.syncOnlyRaw(raw, bindings);   // no edges emitted
+    return;
+}
+```
+
+That is why a key held through a pause is not reported as a fresh press when
+play resumes.
+
+### The event hooks
+
+`KeyboardHandlerMixin` and `MouseHandlerMixin` observe at HEAD and cancel
+nothing:
+
+```java
+@Inject(method = "keyPress", at = @At("HEAD"), require = 0)
+private void onKeyPressObserved(long window, int action, KeyEvent event, CallbackInfo ci) {
+    KeyboardProcessor.onKeyEvent(event.key(), action);
+}
+```
+
+Vanilla still routes the event to the open screen, to the key bindings and to
+every other mod exactly as before.
+
+## Stage 2 — edge detection
+
+Both sources write through one method:
+
+```java
+public boolean updateSlot(int slot, boolean down) {
+    if (slot < 0 || slot >= SLOTS) return false;
+    if (slotDown[slot] == down) return false;
+    slotDown[slot] = down;
+    slotChangeNanos[slot] = System.nanoTime();
+    return true;
+}
+```
+
+An unchanged value means the other source already reported this edge. That is
+the entire duplicate-suppression mechanism: no timing window, no per-tick
+"already dispatched" flag, nothing that can leak between ticks.
+
+`KeyStateManager` keeps two views:
+
+- A 512-bit `long[]` of raw key codes, so a lookup is a shift and a mask with
+  no allocation.
+- One boolean per action slot, which is what the edge detection runs on.
+
+<Callout variant="info" title="Not thread-safe by design">
+The game thread and the polling thread both use it. The engine hands each of
+them its own instance and merges edges rather than adding a lock to the hot
+path.
+</Callout>
+
+### Slot to action
+
+Twelve slots, each with a press action and an optional release action:
+
+| Slot | Press | Release |
+| --- | --- | --- |
+| 0 | `ATTACK_PRESSED` | `ATTACK_RELEASED` |
+| 1 | `USE_PRESSED` | `USE_RELEASED` |
+| 2 | `SPRINT_PRESSED` | `SPRINT_RELEASED` |
+| 3 | `SNEAK_PRESSED` | `SNEAK_RELEASED` |
+| 4 | `JUMP_PRESSED` | — |
+| 5 | `FORWARD_PRESSED` | `FORWARD_RELEASED` |
+| 6 | `BACK_PRESSED` | `BACK_RELEASED` |
+| 7 | `LEFT_PRESSED` | `LEFT_RELEASED` |
+| 8 | `RIGHT_PRESSED` | `RIGHT_RELEASED` |
+| 9 | `DROP_PRESSED` | — |
+| 10 | `SWAP_PRESSED` | — |
+| 11 | `PICK_BLOCK_PRESSED` | — |
+
+## Stage 3 — dispatch
+
+`InputEventDispatcher` is the single exit point. It preserves order because
+there is exactly one dispatcher and it is called in the order the edges were
+detected.
+
+```java
+public boolean submit(InputAction action, int dedupeWindowMs) {
+    if (dedupeWindowMs > 0 && isClick(action)) {
+        long window = dedupeWindowMs * 1_000_000L;
+        if (lastClickNanos != 0L && start - lastClickNanos < window) {
+            diagnostics.duplicateSuppressed();
+            return false;
+        }
+    }
+    boolean queued = InputActionQueue.queue(action, InputAction.Origin.INPUT);
+    ...
+}
+```
+
+The dedupe window covers the one case the state machine cannot: two physical
+clicks so close together that a replay or a duplicated event would otherwise
+fire twice. Only `ATTACK_PRESSED` and `USE_PRESSED` are deduplicated, and only
+when `mouse_click_dedupe_ms` is above zero.
+
+A rejected action is counted as dropped. It never disappears silently.
+
+## Stage 4 — the queue
+
+`InputActionQueue` is a `ConcurrentLinkedQueue` with an explicit counter and
+one lock:
+
+```java
+public static boolean queue(InputAction action, InputAction.Origin origin) {
+    synchronized (LOCK) {
+        if (COUNT.get() >= MAX_QUEUED) return false;
+        QUEUE.offer(InputAction.Stamped.of(action, origin));
+        COUNT.incrementAndGet();
+        return true;
+    }
+}
+```
+
+`ConcurrentLinkedQueue.size()` is O(n), which is why the counter exists. The
+counter and the contents are mutated under the same lock, because a previous
+version incremented the counter outside the lock and a racing producer could
+make the queue grow past the 128 bound.
+
+Every queued action carries a capture timestamp and an origin:
+
+```java
+public record Stamped(InputAction action, long capturedAt, Origin origin) { }
+```
+
+`Origin` is `INPUT` for a real press and `REPLAY` for a re-injected one.
+
+## Stage 5 — the drain
+
+The drainer runs at the head of the client tick:
+
+```java
+@Inject(method = "tick", at = @At("HEAD"), require = 1)
+private void onTickHead(CallbackInfo ci) {
+    Minecraft mc = Minecraft.getInstance();
+    if (mc.player == null) return;
+    InputDrainer.drainAll(mc);
+}
+```
+
+`drainAll` bails out and clears the queue when:
+
+- There is no client, no player or no game mode.
+- The mod is not active or not initialised.
+- Safe Mode disabled the `input` module.
+- A screen is open.
+
+```java
+if (dev.inputbooster.input.KeyboardRouter.isScreenOpen()
+    || (mc.gui != null && mc.gui.screen() != null)) {
+    InputActionQueue.clear();
+    return;
+}
+```
+
+Each action is applied inside its own guard:
+
+```java
+try {
+    apply(stamped.action(), mc);
+} catch (Throwable t) {
+    InputBoosterMod.LOGGER.warn("[InputBooster] {} failed: {}", stamped.action(), t.toString());
+    if (InputBoosterMod.safeMode != null) safeMode.recordError("input", t);
+    continue;
+}
+```
+
+One failing action must not abort the tick or take the client down with it.
+
+## Stage 6 — suppression
+
+If the mod fired an attack this tick, vanilla must not fire a second one for
+the same physical click. The token is single-use and tick-scoped:
+
+```java
+public static boolean consumeAttackSuppression() {
+    if (attackHandledTick == TICK.get()) {
+        attackHandledTick = -1;
+        return true;
+    }
+    return false;
+}
+```
+
+The token carries the tick id it was issued in and is discarded when that tick
+ends. A missed or reordered call can never suppress a legitimate attack on a
+later tick.
+
+<Callout variant="warning" title="A blocked click is still suppressed">
+When the CPS limiter rejects an attack, the mod marks the attack as handled
+anyway. A blocked click stays blocked; it does not leak through as a vanilla
+click.
+</Callout>
+
+## The action rules
+
+The drainer is where the action semantics live. The full table is in the
+[action reference](/docs/reference/actions). The rules that are not obvious:
+
+| Action | Rule |
+| --- | --- |
+| `ATTACK_PRESSED` | Only for a living entity within squared distance 36 |
+| `ATTACK_PRESSED` on a block | Nothing — block breaking is a held-key mechanic that vanilla already handles every tick |
+| `USE_PRESSED` | Only when the hit result is `MISS`; a chest or a lever goes back to `startUseItem()` |
+| `JUMP_PRESSED` | Only when the player is on the ground, in water, in lava or climbing |
+| `SWAP_PRESSED` | Nothing — the offhand swap belongs to vanilla |
+| `PICK_BLOCK_PRESSED` | Only over a block, and only if the accessor mixin applied |
+
+## Diagnostics
+
+`DiagnosticsManager` counts keyboard events, mouse events, scroll events,
+actions submitted, actions dropped, duplicates suppressed, repeats ignored,
+and the mean dispatch cost in nanoseconds.
+
+<Callout variant="info" title="The counters are the debug surface">
+They are what the overlay's event line shows and what the Overview tab
+reports. They are the fastest way to tell "the event hook never fired" from
+"the queue was full".
+</Callout>
+
+## Related pages
+
+- [Architecture](/docs/developers/architecture) — the layer map.
+- [Engine modes](/docs/developers/engine-modes) — which source is allowed to
+  dispatch.
+- [The queue](/docs/reference/queue) — the bounds and the drop rules.

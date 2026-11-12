@@ -1,0 +1,199 @@
+---
+title: "The config file"
+description: "Where inputbooster.properties lives, how it is written, how it is read, and what happens to a value it cannot parse."
+order: 1
+group: "Files"
+---
+
+<Lead>
+Everything the mod remembers between sessions lives in one properties file.
+It is written atomically, read defensively and never fatal: a broken value
+costs you that one setting, not the game.
+</Lead>
+
+## Location
+
+<Command command=".minecraft/config/inputbooster.properties" block label="Default location" />
+
+The directory is resolved from the `inputbooster.configDir` system property
+when it is set, and `config` relative to the game directory otherwise. The
+system property exists so the automated tests can use a throwaway folder.
+
+| File | Purpose |
+| --- | --- |
+| `inputbooster.properties` | The main settings |
+| `inputbooster_profiles.json` | Saved profiles, JSON |
+| `inputbooster_server_profiles.properties` | Server-to-profile bindings |
+
+<Callout variant="warning" title="Edit with the game closed">
+The file is written when the settings screen saves and again when the client
+shuts down. An edit made while the game is running can be overwritten at the
+next save.
+</Callout>
+
+## Format
+
+A standard Java properties file: `key=value`, one per line, `#` starts a
+comment.
+
+```properties
+#InputBooster 4.1.2-alpha configuration - by Ahaduzzaman Khan
+poll_rate_hz=200
+poll_rate_auto=true
+burst_mode=true
+combo_keys=true
+sprint_fix=true
+auto_sprint=true
+wtap_assist=true
+anti_idle=true
+auto_strafe=true
+cps_limiter=true
+max_cps=20
+cps_mode=FIXED
+click_sounds=false
+click_sound_pitch=1.35
+click_sound_volume=0.35
+replay_enabled=true
+safe_mode=true
+event_log=true
+key_conflict_warn=true
+per_server_profiles=true
+custom_keyboard_handler=false
+show_f3_info=true
+show_keystrokes=true
+overlay_position=0
+overlay_scale=1.0
+overlay_opacity=0.8
+show_action_bar=true
+fps_check_interval=20
+debug_mode=false
+engine_mode=0
+keyboard_repeat_guard=true
+mouse_scroll_debounce_ms=0
+mouse_click_dedupe_ms=0
+compat_fallback=true
+overlay_mode=0
+overlay_show_engine=true
+overlay_show_events=true
+overlay_show_overhead=true
+config_version=305
+```
+
+That is all 39 persisted keys with their default values. The full table with
+ranges and readers is in the [key reference](/docs/configuration/keys).
+
+## How it is written
+
+The save is synchronous and atomic:
+
+1. The parent directory is created if it does not exist.
+2. A temporary file is created in the same directory.
+3. Every key is written to it.
+4. The temporary file is moved over the real file, atomically where the
+   filesystem supports it.
+
+```java
+Path temp = Files.createTempFile(parent, "inputbooster", ".tmp");
+try (OutputStream out = Files.newOutputStream(temp)) {
+    props.store(out, "InputBooster " + MOD_VERSION + " configuration - by Ahaduzzaman Khan");
+}
+try {
+    Files.move(temp, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING,
+        StandardCopyOption.ATOMIC_MOVE);
+} catch (AtomicMoveNotSupportedException e) {
+    Files.move(temp, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING);
+}
+```
+
+<Callout variant="info" title="Why this matters">
+The UI thread, the game thread and the shutdown path can all save. Before the
+temp-file approach, a save that raced with another one left a truncated file
+and wiped the user's settings. The move is atomic, so a reader sees either the
+old file or the new one, never a half-written one.
+</Callout>
+
+## How it is read
+
+`load()` starts from the documented defaults every time and then applies the
+file. That ordering matters: an earlier version only assigned the keys that
+were present, so any key missing from the file kept whatever value it had in
+memory — importing a partial config leaked the previous session's settings.
+
+## Accepted boolean spellings
+
+| Spelling | Result |
+| --- | --- |
+| `true`, `True`, `TRUE` | true |
+| `yes`, `Yes` | true |
+| `1` | true |
+| `on`, `On` | true |
+| `false`, `False` | false |
+| `no`, `No` | false |
+| `0` | false |
+| `off`, `Off` | false |
+
+<Callout variant="note" title="Why this is not the Java default">
+`Boolean.parseBoolean` only accepts a lowercase `true`, so `True`, `yes` and
+`1` all resolved to false. Hand-edited configs silently disabled features,
+which is why the parser accepts the common spellings.
+</Callout>
+
+Anything else falls back to the default, and the key is named in the warning
+line described in [validation](/docs/configuration/validation).
+
+## Ranges
+
+Numeric values are clamped, not rejected, when they are read and when they are
+set:
+
+| Key | Range |
+| --- | --- |
+| `poll_rate_hz` | 60 to 1000 |
+| `max_cps` | 1 to 20 |
+| `click_sound_pitch` | 0.5 to 2.0 |
+| `click_sound_volume` | 0.0 to 1.0 |
+| `overlay_position` | 0 to 3 |
+| `overlay_scale` | 0.5 to 3.0 |
+| `overlay_opacity` | 0.0 to 1.0 |
+| `fps_check_interval` | 1 to 100 |
+| `engine_mode` | 0 to 2 |
+| `mouse_scroll_debounce_ms` | 0 to 200 |
+| `mouse_click_dedupe_ms` | 0 to 100 |
+| `overlay_mode` | 0 to 1 |
+
+## The schema version
+
+`config_version` is the on-disk schema version. The current value is **305**.
+
+When the mod loads a file with a lower version it logs a migration line and
+renames three legacy keys:
+
+| Legacy key | Current key |
+| --- | --- |
+| `auto_sprint_key` | `auto_sprint` |
+| `watap` | `wtap_assist` |
+| `pollrate` | `poll_rate_hz` |
+
+The version is written back on the next save, so a migrated file stops
+migrating.
+
+## The three files
+
+<FileTree
+  title="InputBooster files"
+  items={[
+    ".minecraft/config/inputbooster.properties",
+    ".minecraft/config/inputbooster_profiles.json",
+    ".minecraft/config/inputbooster_server_profiles.properties",
+  ]}
+/>
+
+Only the first is created automatically. The profile file appears when you
+save a profile; the bindings file appears when a binding is written.
+
+## Related pages
+
+- [Key reference](/docs/configuration/keys) — every key, its default, its
+  range and what reads it.
+- [Validation](/docs/configuration/validation) — what happens to a bad value.
+- [Profile format](/docs/configuration/profiles-format) — the JSON schema.

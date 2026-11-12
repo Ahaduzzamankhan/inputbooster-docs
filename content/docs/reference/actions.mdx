@@ -1,0 +1,239 @@
+---
+title: "Action semantics"
+description: "Every InputAction the mod can emit, and exactly what the drainer does with each one."
+order: 1
+group: "Semantics"
+---
+
+<Lead>
+Twelve tracked bindings produce nineteen action values. The drainer decides
+what each one means, and several of them deliberately do nothing.
+</Lead>
+
+## The enum
+
+```java
+public enum InputAction {
+    ATTACK_PRESSED, ATTACK_RELEASED,
+    USE_PRESSED, USE_RELEASED,
+    SPRINT_PRESSED, SPRINT_RELEASED,
+    SNEAK_PRESSED, SNEAK_RELEASED,
+    JUMP_PRESSED,
+    FORWARD_PRESSED,  FORWARD_RELEASED,
+    BACK_PRESSED,     BACK_RELEASED,
+    LEFT_PRESSED,     LEFT_RELEASED,
+    RIGHT_PRESSED,    RIGHT_RELEASED,
+    DROP_PRESSED,
+    SWAP_PRESSED,
+    PICK_BLOCK_PRESSED;
+}
+```
+
+Twelve have a press action, seven have a release action. The five that do not
+— jump, drop, swap, pick block — are one-shot actions where a release carries
+no information.
+
+## What each action does
+
+### ATTACK_PRESSED
+
+Only fires against a living entity within vanilla melee range:
+
+```java
+if (target != null && target.isAlive()
+    && player.distanceToSqr(target) <= 36.0D) {
+    mc.gameMode.attack(player, target);
+    McVersion.swingArm(player);
+    markAttackHandled();
+}
+```
+
+| Condition | Result |
+| --- | --- |
+| Hit result is an entity, alive, within 36 squared units | The attack fires and vanilla's is suppressed |
+| Hit result is a block | **Nothing.** Block breaking is a held-key mechanic |
+| Hit result is `MISS` | Nothing |
+| Target died since the hit result was computed | Nothing |
+
+<Callout variant="warning" title="The hit result is one frame old">
+It was computed during the previous frame. That is why the drainer re-checks
+that the target is alive and in range instead of trusting it. A stale target
+would otherwise be attacked after it died or moved away.
+</Callout>
+
+### ATTACK_RELEASED
+
+Nothing. The release is tracked but not executed.
+
+### USE_PRESSED
+
+Only when the crosshair hits nothing:
+
+```java
+if (hit == null || hit.getType() == HitResult.Type.MISS) {
+    mc.gameMode.useItem(player, InteractionHand.MAIN_HAND);
+    markUseHandled();
+}
+```
+
+| Condition | Result |
+| --- | --- |
+| Nothing under the crosshair | The item is used and vanilla's use is suppressed |
+| A block under the crosshair | **Nothing.** Vanilla's `startUseItem` handles it |
+| An entity under the crosshair | **Nothing.** Vanilla handles the interaction |
+
+<Callout variant="info" title="Why this is narrow">
+An earlier version called `useItem` on every press and suppressed vanilla, so
+chests, levers and doors could not be opened. Now only the
+"right-click at nothing" case is executed, and everything else goes back to
+`startUseItem()`.
+</Callout>
+
+### USE_RELEASED
+
+Nothing.
+
+### SPRINT_PRESSED / SPRINT_RELEASED
+
+```java
+case SPRINT_PRESSED  -> player.setSprinting(true);
+case SPRINT_RELEASED -> {
+    if (!mc.options.keySprint.isDown()) player.setSprinting(false);
+}
+```
+
+On release, the mod only stops sprinting when the vanilla sprint key is also
+up. If the player is still holding sprint, sprinting continues.
+
+### SNEAK_PRESSED / SNEAK_RELEASED
+
+The same shape as sprint, through the version shim:
+
+```java
+case SNEAK_PRESSED  -> McCompat.setSneaking(player, true);
+case SNEAK_RELEASED -> {
+    if (!mc.options.keyShift.isDown()) McCompat.setSneaking(player, false);
+}
+```
+
+### JUMP_PRESSED
+
+```java
+boolean canJump = player.onGround()
+    || McCompat.isInWater(player)
+    || player.isInLava()
+    || McCompat.isClimbing(player);
+if (canJump) {
+    player.jumpFromGround();
+}
+```
+
+The jump happens one tick earlier than vanilla would. Vanilla then sees
+`onGround() == false` and does not jump a second time.
+
+<Callout variant="note" title="An earlier version had this backwards">
+The old guard required the jump key to be *up*, which made the branch
+unreachable: the event only exists because the key went down.
+</Callout>
+
+### FORWARD_PRESSED / BACK_PRESSED / LEFT_PRESSED / RIGHT_PRESSED
+
+Nothing. The mod observes them but does not move the player. Vanilla reads
+those keys directly.
+
+### FORWARD_RELEASED
+
+Runs the W-tap helper:
+
+```java
+case FORWARD_RELEASED -> {
+    if (InputBoosterMod.wTapAssist != null) {
+        InputBoosterMod.wTapAssist.onWRelease();
+    }
+}
+```
+
+The helper multiplies horizontal velocity by 0.6 on the next tick, if the
+forward key is genuinely up. See [combat and movement](/docs/guide/combat-and-movement).
+
+### BACK_RELEASED / LEFT_RELEASED / RIGHT_RELEASED
+
+Nothing.
+
+### DROP_PRESSED
+
+```java
+case DROP_PRESSED -> McVersion.dropHeldItem(player);
+```
+
+### SWAP_PRESSED
+
+**Nothing, on purpose.**
+
+```java
+case SWAP_PRESSED -> {
+    // The offhand swap belongs to vanilla's own keybind path. This
+    // used to call useItem(OFF_HAND), so pressing the swap key ate
+    // food or placed a block instead of swapping the shield in.
+}
+```
+
+### PICK_BLOCK_PRESSED
+
+Only over a block, and only when the accessor mixin applied:
+
+```java
+if (mc.hitResult != null
+    && mc.hitResult.getType() == HitResult.Type.BLOCK
+    && mc.level != null) {
+    if (MixinAccess.pickBlockOrEntity(mc)) {
+        // vanilla pick-block ran
+    } else if (!PICK_BLOCK_MIXIN_WARNED) {
+        PICK_BLOCK_MIXIN_WARNED = true;
+        LOGGER.warn("[Mixin] pick-block hook unavailable; pick-block input is disabled.");
+    }
+}
+```
+
+The warning is printed once per session.
+
+## The summary
+
+| Action | Executes | Condition |
+| --- | --- | --- |
+| `ATTACK_PRESSED` | `gameMode.attack` + swing | Living entity within 36 squared units |
+| `ATTACK_RELEASED` | — | — |
+| `USE_PRESSED` | `gameMode.useItem` | Hit result is `MISS` |
+| `USE_RELEASED` | — | — |
+| `SPRINT_PRESSED` | `setSprinting(true)` | — |
+| `SPRINT_RELEASED` | `setSprinting(false)` | The vanilla sprint key is up |
+| `SNEAK_PRESSED` | `setSneaking(true)` | — |
+| `SNEAK_RELEASED` | `setSneaking(false)` | The vanilla sneak key is up |
+| `JUMP_PRESSED` | `jumpFromGround()` | Grounded, in water, in lava or climbing |
+| `FORWARD_PRESSED` | — | — |
+| `FORWARD_RELEASED` | W-tap velocity scale | The forward key is up |
+| `BACK_PRESSED` / `BACK_RELEASED` | — | — |
+| `LEFT_PRESSED` / `LEFT_RELEASED` | — | — |
+| `RIGHT_PRESSED` / `RIGHT_RELEASED` | — | — |
+| `DROP_PRESSED` | `dropSelectedItem()` | — |
+| `SWAP_PRESSED` | — | Always vanilla's job |
+| `PICK_BLOCK_PRESSED` | The vanilla pick-block helper | Over a block, accessor applied |
+
+## The origin tag
+
+Every queued action carries an origin:
+
+| Origin | Meaning |
+| --- | --- |
+| `INPUT` | A real physical press |
+| `REPLAY` | Re-injected by the replay recorder |
+
+The origin decides three things: whether the hit counter ticks, whether the
+CPS graph counts it, and whether the click sound plays. A replayed event does
+none of those.
+
+## Related pages
+
+- [The queue](/docs/reference/queue) — how actions are bounded and dropped.
+- [Input pipeline](/docs/developers/input-pipeline) — the code path.
+- [Limitations](/docs/reference/limitations) — what is not implemented.

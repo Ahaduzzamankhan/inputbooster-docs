@@ -1,0 +1,152 @@
+---
+title: "Key reference"
+description: "All 39 persisted configuration keys with their default, their allowed range and the code that reads them."
+order: 2
+group: "Files"
+---
+
+<Lead>
+Every key InputBooster writes, what it does, and — for four of them — the
+fact that nothing reads them yet.
+</Lead>
+
+## Polling
+
+| Key | Default | Range | Read by | Effect |
+| --- | --- | --- | --- | --- |
+| `poll_rate_auto` | `true` | boolean | `InputBoosterMod.onClientTick` | Follows the frame rate instead of a fixed rate |
+| `poll_rate_hz` | `200` | 60–1000 | `InputPollingThread`, `adjustPollRateManual` | The fixed sampling rate |
+| `burst_mode` | `true` | boolean | `BurstModeManager` | 1000 Hz for three seconds after a frame-rate drop |
+| `combo_keys` | `true` | boolean | `InputBoosterMod.handleComboKeys` | The Ctrl+1-5 poll rate presets |
+| `fps_check_interval` | `20` | 1–100 | — | **No effect.** The adaptive rate is recomputed every tick regardless |
+
+## Movement and combat
+
+| Key | Default | Range | Read by | Effect |
+| --- | --- | --- | --- | --- |
+| `sprint_fix` | `true` | boolean | `SprintManager`, `ModuleManager` | Enables the whole sprint manager |
+| `auto_sprint` | `true` | boolean | `SprintManager` | Sprint while moving forward |
+| `wtap_assist` | `true` | boolean | `WTapAssist` | Horizontal velocity multiplied by 0.6 after W is released |
+| `anti_idle` | `true` | boolean | `AntiIdleManager` | A tiny yaw nudge every 200 ticks |
+| `auto_strafe` | `true` | boolean | `AutoStrafeManager` | Low-FPS strafe correction below 40 FPS |
+| `cps_limiter` | `true` | boolean | `CpsLimiter`, `ModuleManager` | Enables the click rate cap |
+| `max_cps` | `20` | 1–20 | `CpsLimiter` | The cap the limiter enforces |
+| `cps_mode` | `FIXED` | string | `CpsLimiter` | `FIXED`, `HUMANIZED`, `WEAPON_AWARE` or `COOLDOWN` |
+
+<Callout variant="warning" title="`cps_mode` is not validated">
+The value is upper-cased and stored, but it is never checked against the four
+known names. An unknown value falls through to the `FIXED` branch of the
+switch, because that is the default arm.
+</Callout>
+
+## Mouse
+
+| Key | Default | Range | Read by | Effect |
+| --- | --- | --- | --- | --- |
+| `mouse_click_dedupe_ms` | `0` | 0–100 | `InputEngine.clickDedupeMs`, `InputEventDispatcher` | Minimum gap between two accepted attacks |
+| `mouse_scroll_debounce_ms` | `0` | 0–200 | `MouseProcessor.onScroll` | Ignores repeat wheel events inside the window |
+| `click_sounds` | `false` | boolean | `InputClickSoundManager` | Plays a UI click for executed actions |
+| `click_sound_pitch` | `1.35` | 0.5–2.0 | `InputClickSoundManager` | The pitch of that sound |
+| `click_sound_volume` | `0.35` | 0.0–1.0 | — | **No audible effect.** The sound instance is created with the pitch only |
+
+Scrolling is only counted by the mod. It never applies scroll input to the
+game.
+
+The click sound plays for every *pressed* action the mod executed — attack,
+use, sprint, sneak, jump, the four movement keys, drop, swap and pick block —
+with a minimum interval of 18&nbsp;ms between sounds. Replayed events do not
+play it.
+
+<Callout variant="info" title="The volume slider is not connected">
+`InputClickSoundManager` builds the sound with `SimpleSoundInstance.forUI(sound, pitch)`.
+The configured volume is never passed to it, so changing `click_sound_volume`
+changes the file and the slider but not the sound you hear.
+</Callout>
+
+## Engine
+
+| Key | Default | Range | Read by | Effect |
+| --- | --- | --- | --- | --- |
+| `engine_mode` | `0` | 0–2 | `CompatibilityManager.resolveMode` | 0 automatic, 1 event driven, 2 polled |
+| `keyboard_repeat_guard` | `true` | boolean | — | **No effect.** A repeat action is ignored unconditionally |
+| `compat_fallback` | `true` | boolean | `CompatibilityManager.resolveMode` | Poll instead of competing with a detected input mod |
+| `custom_keyboard_handler` | `false` | boolean | `KeyboardRouter`, `InputPollingThread` | The alpha keyboard handler |
+
+<Callout variant="info" title="The repeat guard always runs">
+`KeyboardProcessor` ignores GLFW's `REPEAT` action unconditionally, before the
+guard is consulted. The behaviour you get is "a held key is one press"
+whatever the toggle says — the toggle is simply not in the path.
+</Callout>
+
+## Overlay
+
+| Key | Default | Range | Read by | Effect |
+| --- | --- | --- | --- | --- |
+| `show_f3_info` | `true` | boolean | `OverlayRenderer.visible`, `DebugOverlayManager` | The master switch for the overlay |
+| `overlay_mode` | `0` | 0–1 | `OverlayRenderer.visible` | 0 F3 only, 1 always |
+| `overlay_position` | `0` | 0–3 | `OverlayLayout.compute` | 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right |
+| `overlay_scale` | `1.0` | 0.5–3.0 | `OverlayRenderer.render` | Panel and glyph scale |
+| `overlay_opacity` | `0.8` | 0.0–1.0 | `OverlayRenderer.render` | The alpha of the panel background |
+| `overlay_show_engine` | `true` | boolean | `OverlayRenderer.rebuildIfStale` | The engine line |
+| `overlay_show_events` | `true` | boolean | `OverlayRenderer.rebuildIfStale` | The event counter line |
+| `overlay_show_overhead` | `true` | boolean | `OverlayRenderer.rebuildIfStale` | The dispatch timing line |
+| `show_keystrokes` | `true` | boolean | — | **No effect.** There is no keystroke renderer |
+| `show_action_bar` | `true` | boolean | `BurstModeManager` | Action bar messages for burst mode only |
+
+<Callout variant="warning" title="`show_action_bar` is narrower than it sounds">
+It gates the burst mode start and end messages. It does not gate the replay
+status messages, the profile-loaded message or the combo key rate message;
+those are sent unconditionally.
+</Callout>
+
+## Features and diagnostics
+
+| Key | Default | Range | Read by | Effect |
+| --- | --- | --- | --- | --- |
+| `replay_enabled` | `true` | boolean | `ReplayRecorder` | Enables the recorder and playback |
+| `safe_mode` | `true` | boolean | `SafeModeManager.recordError` | Disables a module that keeps failing |
+| `event_log` | `true` | boolean | `EventLog.add` | The in-memory activity log |
+| `key_conflict_warn` | `true` | boolean | `KeybindConflictDetector` | Warns about clashing binds |
+| `per_server_profiles` | `true` | boolean | `PerServerProfileManager.tick` | Switches the profile when the server changes |
+| `debug_mode` | `false` | boolean | — | **No effect.** There is an accessor, but no verbose logging is gated on it |
+
+## Meta
+
+| Key | Default | Range | Read by | Effect |
+| --- | --- | --- | --- | --- |
+| `config_version` | `305` | 1 or greater | `InputBoosterConfig.migrate` | The on-disk schema version |
+
+## The five inert keys
+
+<Callout variant="danger" title="Persisted, validated, and unused">
+`show_keystrokes`, `fps_check_interval`, `keyboard_repeat_guard`,
+`debug_mode` and `click_sound_volume` are all written to the file, all
+validated, and all reachable from the settings screen. No runtime behaviour
+depends on them in 4.1.2-alpha. They are documented here rather than hidden,
+because a setting that looks live and is not is worse than a missing one.
+</Callout>
+
+| Key | Why it has no effect |
+| --- | --- |
+| `show_keystrokes` | No renderer exists for a keystroke display |
+| `fps_check_interval` | The adaptive poll rate is recomputed on every client tick |
+| `keyboard_repeat_guard` | Repeat events are discarded before the toggle is read |
+| `debug_mode` | No log statement is gated on it |
+| `click_sound_volume` | The sound instance is created with the pitch only |
+
+## Keys not in a profile
+
+These are in the config file but not captured by a profile:
+
+`overlay_position`, `overlay_scale`, `overlay_opacity`, `overlay_mode`,
+`overlay_show_engine`, `overlay_show_events`, `overlay_show_overhead`,
+`engine_mode`, `custom_keyboard_handler`, `compat_fallback`,
+`keyboard_repeat_guard`, `mouse_scroll_debounce_ms`, `mouse_click_dedupe_ms`,
+`click_sounds`, `click_sound_pitch`, `click_sound_volume`, `config_version`.
+
+## Related pages
+
+- [The config file](/docs/configuration/config-file) — location, format and
+  atomic writes.
+- [Validation](/docs/configuration/validation) — what happens to a bad value.
+- [Limitations](/docs/reference/limitations) — the inert settings in context.

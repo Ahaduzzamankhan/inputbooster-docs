@@ -1,0 +1,120 @@
+---
+title: "Contribution workflow"
+description: "How to propose a change, what a good pull request looks like, and what the project expects from a contributor."
+order: 1
+group: "Contribute"
+---
+
+<Lead>
+The project accepts bug fixes, features and documentation improvements. One
+change per pull request, with a description that says what changed and why.
+</Lead>
+
+## The short version
+
+<Steps>
+  <Step title="Open an issue first for anything non-trivial">
+    A bug report with reproduction steps, or a feature proposal that explains
+    why it is useful. A one-line bug fix can go straight to a pull request.
+  </Step>
+  <Step title="Fork and branch">
+    `feature/your-feature` or `bugfix/your-bug`, from the branch that matches
+    your Minecraft version.
+  </Step>
+  <Step title="Write the code">
+    Clean, readable Java that follows the conventions in the repository. The
+    [code conventions](/docs/contributing/code-conventions) page lists the
+    rules that are not obvious.
+  </Step>
+  <Step title="Test it in the client">
+    The unit suite is not enough. The engine touches vanilla behaviour, so run
+    the game.
+  </Step>
+  <Step title="Open the pull request">
+    One feature or bug per request, with a description of what changed and
+    why. Add screenshots or a short clip if it affects visuals or gameplay.
+  </Step>
+</Steps>
+
+## Branches
+
+The repository has two long-lived branches:
+
+| Branch | Target |
+| --- | --- |
+| `main` | The current Minecraft line (26.2 and 26.3) |
+| `fabric-26.2-26.3` | The Fabric 26.2 and 26.3 build line |
+
+CI runs on pushes to both, on tags and on pull requests against `main`.
+
+## What a good pull request looks like
+
+| Requirement | Why |
+| --- | --- |
+| One change per request | A review of three things is three reviews |
+| A description of what changed and why | The maintainer needs the reason, not only the diff |
+| The unit suite passes | `./gradlew test` in `fabric/` |
+| It was run in a client | The engine's behaviour is only observable in a game |
+| Screenshots for visual changes | A rendering change cannot be reviewed from a diff |
+| The mixin rules are respected | A broken mixin crashes every client |
+
+<Callout variant="danger" title="A mixin mistake is a release-stopping bug">
+Two released versions crashed on launch because of mixin declaration errors.
+Both mistakes are now caught by a test, but only if the test is not disabled.
+</Callout>
+
+## The mixin rules
+
+These are the rules that have broken a release before:
+
+| Rule | Why |
+| --- | --- |
+| An accessor for a class target is an `abstract class` | An interface mixin aborts the transformation |
+| A mixin contains no non-private static method | A public helper aborts the transformation |
+| The handler parameters match the target exactly | A mismatch is fatal even with `require = 0` |
+| A critical-path injection uses `require = 1` | A missing hook must fail loudly |
+| An optional hook uses `require = 0` | A missing hook must degrade, not crash |
+| Observers cancel nothing and change no binding | Another mod's input stays untouched |
+
+The full list with the reasoning is in the
+[mixin inventory](/docs/reference/mixins).
+
+## Adding a feature
+
+The pattern every feature follows is in
+[feature managers](/docs/developers/feature-managers#writing-a-new-feature). The
+short version: a config key, a manager class, a tick hook behind the module
+manager, a settings control that writes a real value, and a profile field if
+it should travel with a profile.
+
+<Callout variant="warning" title="The rule that is easiest to break">
+A toggle that does not write a config value is a lie in the interface. If a
+control exists, it must change a file value that something reads.
+</Callout>
+
+## Other ways to contribute
+
+The project's contributing guide also lists:
+
+| Contribution | What it looks like |
+| --- | --- |
+| Documentation | Improving the README, the guides or the wiki |
+| Testing | Trying new builds and reporting what breaks |
+| Support | Answering questions in the forums or Discord |
+
+## Code of conduct
+
+The project follows the Contributor Covenant. Be respectful and friendly.
+Harassment, hate speech and toxic behaviour are not tolerated.
+
+## Licence
+
+By contributing, you agree that your contributions are under the same licence
+as the project — MIT.
+
+## Related pages
+
+- [Code conventions](/docs/contributing/code-conventions) — the rules the code
+  follows.
+- [Building and testing](/docs/developers/building-and-testing) — the commands.
+- [Reporting bugs](/docs/troubleshooting/reporting-bugs) — how to file an issue.

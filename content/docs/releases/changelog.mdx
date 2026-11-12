@@ -1,0 +1,176 @@
+---
+title: "Changelog"
+description: "What changed in every published InputBooster release, and which ones must not be used."
+order: 1
+group: "Releases"
+---
+
+<Lead>
+The full history, condensed. The project's own `CHANGELOG.md` is the
+authority; this page is the version-by-version summary with the practical
+consequences.
+</Lead>
+
+## 4.1.2-alpha — Movable, scrollable, resizable settings window
+
+The current release.
+
+**Added:** drag the header to move the window; drag the bottom-right grip to
+resize it down to 380x260; scroll the section content with the wheel or the
+scrollbar. The geometry is kept for the session and deliberately not written
+to the config file.
+
+**Fixed:** on a short window, controls below the fold — including Save &
+Close in some sections — could not be reached at all. The panel no longer
+covers the whole screen height.
+
+## 4.1.1-alpha — Fix the launch crash in 4.1.0-alpha
+
+`4.1.0-alpha` crashed during startup on every loader:
+
+```text
+InvalidInjectionException ... Invalid descriptor on
+inputbooster.mixins.json:KeyboardHandlerMixin
+```
+
+The observing mixins were written against the 1.21 signature
+`keyPress(long, int key, int scancode, int action, int modifiers)`. 26.2 and
+26.3 use `keyPress(long window, int action, KeyEvent event)` and
+`MouseHandler.onButton(long window, MouseButtonInfo button, int action)`
+instead of `onPress`.
+
+`require = 0` does not protect against this. It tolerates a missing target,
+not a handler whose parameters disagree with the target.
+
+**Fixed:** the mixins target the 26.x signatures, and
+`MixinTargetSignatureTest` checks every hook against the resolved Minecraft
+jar for both builds. A wrong signature now fails the build instead of the
+game.
+
+## 4.1.0-alpha — Input engine, new overlay, new settings
+
+The largest release in the 4.x line. The engine and the screens are new code
+and have not been run in a client.
+
+**Added:**
+
+- The engine package: `InputEngine`, `KeyStateManager`, `KeyboardProcessor`,
+  `MouseProcessor`, `KeyBindingProcessor`, `InputEventDispatcher`,
+  `CompatibilityManager`, `DiagnosticsManager` and `ConfigurationManager`.
+- Two observing mixins that run at HEAD, cancel nothing and use `require = 0`.
+- Engine modes with automatic fallback when a known input mod owns input
+  routing.
+- Diagnostics counters: keyboard and mouse events, actions submitted, rejected,
+  duplicates suppressed, repeats ignored, mean dispatch cost.
+- The overlay rewrite: an always-on mode, configurable content, cached text,
+  four-corner placement with clamping.
+- The settings redesign: seven sections in a left rail plus a separate
+  profiles screen.
+- Nine new config keys and schema version 305.
+- 81 tests in total.
+
+**Fixed:** the overlay's text was invisible because the colours were RGB
+values with a zero alpha byte. The overlay only appeared with F3 open. The
+placement could leave the panel off-screen after a resize. Per-poll
+allocation was removed from the hot path.
+
+## 4.0.3-stable — Launch crash fix
+
+**Do not use 4.0.2-stable.** It crashed before the main menu on every client.
+
+The three accessor mixins carried their cast helpers as `public static`
+methods. Mixin only permits private static methods inside a mixin, and a
+non-private one aborts the transformation of the whole target class:
+
+```text
+InvalidMixinException: Mixin inputbooster.mixins.json:KeyMappingAccessor
+contains non-private static method boundCode(Lnet/minecraft/client/KeyMapping;)I
+```
+
+That ran while the game was loading `Minecraft`, so the launch ended with
+"Mixin transformation of net.minecraft.client.Minecraft failed" and no crash
+report. The helpers moved to the plain class `dev.inputbooster.access.MixinAccess`.
+
+A regression test, `MixinDeclarationTest`, now fails the build if any
+registered mixin declares a non-private static method.
+
+## 4.0.2-stable — Withdrawn
+
+Kept for history. Crashes on launch; use 4.0.3-stable.
+
+## 4.0.2-alpha — Alpha keyboard handler
+
+**Added:** the custom keyboard handler, off by default. `KeyboardRouter` makes
+the screen decision from the game's own show-screen call instead of asking
+the HUD at tick time. `ScreenTrackingMixin` only observes that call.
+
+**Fixed:** a space typed in chat jumped the player, because the poller read
+raw key state at full rate with no reliable screen signal.
+
+## 4.0.1-beta — Input pipeline correctness pass
+
+A bug review of the whole input path. No new features.
+
+**Fixed, among about twenty items:**
+
+| Bug | Fix |
+| --- | --- |
+| `COOLDOWN` CPS mode allowed one click per session | The minimum gap was computed in nanoseconds and multiplied by 1,000,000 again, giving roughly 15 hours. It is now 35 ms or one window divided by the cap |
+| Clicks inside a screen executed in the world | The poller and the drainer now require that no screen is open |
+| Right-click ignored block interaction | Only the "nothing under the crosshair" case is executed now |
+| The swap-offhand key used the offhand item | The swap is vanilla's job |
+| One failing action could crash the tick | Every action is applied inside a guard, and the queue keeps draining |
+| Jump from the mod never ran | The old guard required the jump key to be up, which made the branch unreachable |
+| Fallback sprint and sneak keys were swapped | The defaults now match vanilla |
+| A failed init retried on every tick | Initialisation stops after one failure |
+| Keys held through a pause fired fresh presses on resume | The state is re-read instead of cleared |
+| Entity attacks could target a stale hit result | The target is re-checked for life and reach |
+| Replay inflated session stats | Only physical input ticks the counters now |
+| The overlay scale did not reach the text | The glyphs are scaled too |
+
+## 3.1.4 — Mixin declaration fix
+
+The 3.1.3 jars could not start the client at all:
+
+```text
+InvalidMixinException: @Mixin target type mismatch:
+net.minecraft.client.KeyMapping is not an interface
+```
+
+The three accessors were declared as `interface` mixins, but their targets
+are classes. All three are now `abstract class` mixins, and the casts moved
+into static helpers that return a fallback when the mixin is not applied.
+
+## 3.1.3 — Loader compatibility fix
+
+Every 3.1.2 Fabric jar crashed on launch:
+
+```text
+requires version [26.2,26.3) of 'Minecraft', but only the wrong version is present: 26.2!
+```
+
+The metadata declared a bracket range that Fabric Loader 0.19.5 evaluates
+incorrectly for a two-component version. The fix was the space-separated form
+`>=26.2 <26.3`, which is still what the current jars use.
+
+<Callout variant="note" title="This workaround is still in place">
+The current jars declare `>=26.3 <26.4` rather than `[26.3,26.4)`. It is a
+loader bug workaround, not a version policy.
+</Callout>
+
+## 3.1.2, 3.1.1, 3.1.0 — The first 26.x line
+
+The first releases for Minecraft 26.2 and 26.3. 3.1.2 is unusable because of
+the range bug above.
+
+## 3.0.2-rl1 — Minecraft 1.21.11
+
+The production release of the 1.21 line. A different codebase with a
+different configuration layout, different key binds and a different engine.
+Nothing in this documentation describes it.
+
+## Related pages
+
+- [Jar matrix](/docs/installation/jar-matrix) — which jar to install.
+- [Support matrix](/docs/releases/support-matrix) — the version ranges.
+- [Versioning](/docs/releases/versioning) — how the numbers work.

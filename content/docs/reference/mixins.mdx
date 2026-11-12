@@ -1,0 +1,226 @@
+---
+title: "Mixin inventory"
+description: "Every mixin in the mod: its target, its injection point, its require setting and what it promises."
+order: 3
+group: "Semantics"
+---
+
+<Lead>
+There are ten mixins. Two observe input, one drains the queue, one tracks
+screens, one adds the options button, three provide accessors and two are
+effectively empty.
+</Lead>
+
+## The manifest
+
+```json
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.inputbooster.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "GameTickMixin",
+    "DebugHudMixin",
+    "InGameHudMixin",
+    "OptionsScreenMixin",
+    "GuiAccessor",
+    "KeyMappingAccessor",
+    "KeyboardHandlerMixin",
+    "MinecraftClientAccessor",
+    "MouseHandlerMixin",
+    "ScreenTrackingMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
+```
+
+Every mixin is client side. The manifest requires `JAVA_25`.
+
+<Callout variant="info" title="`defaultRequire` is 1">
+By default, a missing injection target fails the client at startup. A mixin
+that must degrade instead opts out explicitly with `require = 0` on the
+individual injection.
+</Callout>
+
+## The critical path
+
+### GameTickMixin
+
+Target: `net.minecraft.client.Minecraft`.
+
+| Injection | Point | Require | Purpose |
+| --- | --- | --- | --- |
+| `tick` | HEAD | 1 | Drain the queue at the start of the tick |
+| `startAttack` | HEAD, cancellable | 1 | Suppress vanilla's duplicate attack |
+| `startUseItem` | HEAD, cancellable | 1 | Suppress vanilla's duplicate use |
+| `close` | HEAD | 1 | Shut the mod down cleanly |
+
+These four are `require = 1` on purpose. A mapping change must fail loudly
+instead of silently disabling input handling.
+
+```java
+@Inject(method = "startAttack", at = @At("HEAD"), cancellable = true, require = 1)
+private void onStartAttack(CallbackInfoReturnable<Boolean> cir) {
+    if (!InputBoosterMod.active || !InputBoosterMod.initialized.get()) return;
+    if (InputDrainer.consumeAttackSuppression()) {
+        cir.setReturnValue(false);
+    }
+}
+```
+
+## The observers
+
+### KeyboardHandlerMixin
+
+Target: `net.minecraft.client.KeyboardHandler`. Priority 1100.
+
+```java
+@Inject(method = "keyPress", at = @At("HEAD"), require = 0)
+private void onKeyPressObserved(long window, int action, KeyEvent event, CallbackInfo ci) {
+    KeyboardProcessor.onKeyEvent(event.key(), action);
+}
+```
+
+It observes. It cancels nothing, changes no binding and does no local
+capture. Vanilla still routes the event to the open screen, to the key
+bindings and to every other mod exactly as before.
+
+### MouseHandlerMixin
+
+Target: `net.minecraft.client.MouseHandler`. Priority 1100.
+
+| Injection | Method | Purpose |
+| --- | --- | --- |
+| `onButtonObserved` | `onButton(long, MouseButtonInfo, int)` | Turn a button press or release into an edge |
+| `onScrollObserved` | `onScroll(long, double, double)` | Count a wheel event, with an optional debounce |
+
+Scrolling is only counted. The mod never applies scroll input to the game.
+
+<Callout variant="warning" title="The handler parameters must match exactly">
+`require = 0` tolerates a **missing** target. It does not tolerate a handler
+whose parameters disagree with the target — that is a fatal injection error
+and it kills the client while the class is being transformed. This is exactly
+what happened in 4.1.0-alpha.
+</Callout>
+
+## The screen router
+
+### ScreenTrackingMixin
+
+Target: `net.minecraft.client.Minecraft`.
+
+```java
+@Inject(method = "setScreenAndShow", at = @At("HEAD"), require = 0)
+private void onScreenShown(Screen screen, CallbackInfo ci) {
+    KeyboardRouter.recordScreen(screen);
+}
+```
+
+The 26.x API only exposes `setScreenAndShow`; `setScreen` was removed. A hook
+naming it would silently never run, which is why the startup log reports
+which of the two the client actually has.
+
+The mixin only reads the screen argument. It does not cancel the call, does
+not touch key mappings and does not see another mod's input.
+
+## The interface hooks
+
+### OptionsScreenMixin
+
+Target: `net.minecraft.client.OptionsScreen`.
+
+```java
+@Inject(method = "init", at = @At("TAIL"), require = 0)
+private void onInitTail(CallbackInfo ci) {
+    addRenderableWidget(Button.builder(
+        Component.translatable("options.inputbooster.button"),
+        button -> { ... }
+    ).bounds(this.width - 110, 6, 100, 20).build());
+}
+```
+
+`require = 0` is deliberate: this is a convenience button. A mapping change
+should remove the button, not stop Minecraft from starting.
+
+### InGameHudMixin
+
+Target: `net.minecraft.client.gui.Gui`. Priority 900.
+
+```java
+@Inject(method = "extractRenderState", at = @At("TAIL"), require = 0)
+private void onExtractRenderStateTail(DeltaTracker deltaTracker, boolean renderLevel, boolean renderHotbar, CallbackInfo ci) {
+    DebugOverlayManager.extractRenderState(Minecraft.getInstance());
+}
+```
+
+The signature changed in 26.x: `extractRenderState(DeltaTracker, boolean,
+boolean)` replaced the graphics-extractor overload used on 26.1.
+
+### DebugHudMixin
+
+Target: `net.minecraft.client.gui.components.DebugScreenOverlay`. Priority 900.
+
+**Intentionally empty.** The class exists so the mixin list stays stable, but
+it injects nothing. An earlier version hooked `getLeftText` and `getRightText`,
+whose names differ across mapping versions, which produced "Cannot remap"
+warnings and an injection that never ran. The overlay now draws through the
+HUD render state instead, with no mapping dependency.
+
+## The accessors
+
+| Mixin | Target | Exposes |
+| --- | --- | --- |
+| `GuiAccessor` | `Gui` | The GUI render state |
+| `KeyMappingAccessor` | `KeyMapping` | The bound key code |
+| `MinecraftClientAccessor` | `Minecraft` | The vanilla pick-block helper |
+
+<Callout variant="danger" title="Accessors must be abstract classes">
+`KeyMapping`, `Gui` and `Minecraft` are classes, not interfaces. An
+interface-form mixin for a class target aborts the transformation and kills
+the client during class loading. That was the 3.1.3 crash.
+</Callout>
+
+<Callout variant="danger" title="Mixins may not contain public static helpers">
+Mixin only permits **private** static methods inside a mixin. A public static
+helper aborts the transformation of the whole target class. That was the
+4.0.2-stable crash. The helpers now live in the plain class
+`dev.inputbooster.access.MixinAccess`, and `MixinDeclarationTest` fails the
+build if the rule is broken again.
+</Callout>
+
+## The rules, summarised
+
+| Rule | Why |
+| --- | --- |
+| A critical-path injection uses `require = 1` | A missing hook must fail loudly |
+| An optional hook uses `require = 0` | A missing hook must degrade, not crash |
+| Observers run at HEAD and cancel nothing | Another mod's input stays untouched |
+| Handler parameters must match the target exactly | A mismatch is fatal even with `require = 0` |
+| An accessor for a class target is an `abstract class` | An interface mixin aborts the transformation |
+| A mixin contains no non-private static method | A public helper aborts the transformation |
+| Accessor helpers live in `MixinAccess` | Keeps the mixins to members only |
+
+## The startup check
+
+`verifyClientHooks()` runs during initialisation and reports what applied:
+
+```text
+[Mixin] All client hooks present.
+[Mixin] Screen hooks: setScreenAndShow=true, setScreen=false
+[Mixin] Missing vanilla method(s): tick — input handling is degraded.
+[Mixin] No screen hook found; screen state falls back to the HUD check each tick.
+```
+
+The mixins use `require = 0` so an API change degrades instead of crashing.
+Without this check, a silent failure would disable input handling with no
+explanation at all.
+
+## Related pages
+
+- [Building and testing](/docs/developers/building-and-testing) — the two tests
+  that guard these rules.
+- [Input pipeline](/docs/developers/input-pipeline) — where each hook sits.
+- [Limitations](/docs/reference/limitations) — the pick-block caveat.

@@ -1,0 +1,169 @@
+---
+title: "Profile format"
+description: "The JSON schema of inputbooster_profiles.json, every field it holds, and the per-server binding file format."
+order: 4
+group: "Behaviour"
+---
+
+<Lead>
+A profile is one JSON object in an array. The format is stable enough to edit
+by hand, and a file that is not valid JSON is moved aside instead of breaking
+the game.
+</Lead>
+
+## The profile file
+
+<Command command=".minecraft/config/inputbooster_profiles.json" block label="Profile file" />
+
+It is a JSON array. Each element is one profile:
+
+```json
+[
+  {
+    "name": "Competitive",
+    "pollRateHz": 500,
+    "pollRateAutoMode": false,
+    "sprintFixEnabled": true,
+    "autoSprintEnabled": true,
+    "wTapAssistEnabled": true,
+    "antiIdleEnabled": true,
+    "autoStrafeEnabled": false,
+    "cpsLimiterEnabled": true,
+    "showF3Info": true,
+    "showKeystrokes": true,
+    "showActionBar": true,
+    "burstModeEnabled": true,
+    "maxCps": 20,
+    "comboKeysEnabled": true,
+    "fpsCheckInterval": 20,
+    "debugMode": false,
+    "cpsMode": "HUMANIZED",
+    "replayEnabled": true,
+    "safeModeEnabled": true,
+    "eventLogEnabled": true,
+    "keyConflictWarn": true,
+    "perServerProfiles": true
+  }
+]
+```
+
+## Field reference
+
+All 23 fields, with the type and the default used when the field is missing.
+
+| Field | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `name` | string | `Unnamed` | A blank name becomes `Unnamed` |
+| `pollRateHz` | number | 200 | Clamped to 60–1000 on apply |
+| `pollRateAutoMode` | boolean | true | |
+| `sprintFixEnabled` | boolean | true | |
+| `autoSprintEnabled` | boolean | true | |
+| `wTapAssistEnabled` | boolean | true | |
+| `antiIdleEnabled` | boolean | true | |
+| `autoStrafeEnabled` | boolean | true | |
+| `cpsLimiterEnabled` | boolean | true | |
+| `showF3Info` | boolean | true | |
+| `showKeystrokes` | boolean | true | Stored, but the keystroke overlay has no renderer |
+| `showActionBar` | boolean | true | |
+| `burstModeEnabled` | boolean | true | |
+| `maxCps` | number | 20 | Clamped to 1–20 on apply |
+| `comboKeysEnabled` | boolean | true | |
+| `fpsCheckInterval` | number | 20 | Stored, but the adaptive rate ignores it |
+| `debugMode` | boolean | false | Stored, but no logging is gated on it |
+| `cpsMode` | string | `FIXED` | Upper-cased on apply; a blank value becomes `FIXED` |
+| `replayEnabled` | boolean | true | |
+| `safeModeEnabled` | boolean | true | |
+| `eventLogEnabled` | boolean | true | |
+| `keyConflictWarn` | boolean | true | |
+| `perServerProfiles` | boolean | true | |
+
+<Callout variant="info" title="How a missing field is treated">
+Every field is optional when the file is read. A missing field, a null value
+or a value of the wrong type falls back to that field's default. A profile
+written by an older version still loads.
+</Callout>
+
+## What is not in a profile
+
+These config keys are deliberately outside the profile schema:
+
+`overlay_position`, `overlay_scale`, `overlay_opacity`, `overlay_mode`,
+`overlay_show_engine`, `overlay_show_events`, `overlay_show_overhead`,
+`engine_mode`, `custom_keyboard_handler`, `compat_fallback`,
+`keyboard_repeat_guard`, `mouse_scroll_debounce_ms`, `mouse_click_dedupe_ms`,
+`click_sounds`, `click_sound_pitch`, `click_sound_volume`, `config_version`.
+
+Applying a profile leaves them exactly as they were.
+
+## Limits and failure handling
+
+| Rule | Behaviour |
+| --- | --- |
+| Maximum profiles | 5 |
+| Reading | At most the first 5 valid objects are loaded |
+| Write | Atomic — a temporary file is written and then moved into place |
+| Invalid JSON | The file is moved to `inputbooster_profiles.json.corrupt` and the game starts with no profiles |
+| Not an array | Same treatment, with the reason `not a JSON array` |
+| Unreadable file | A warning is logged; the game continues |
+
+<Callout variant="warning" title="A broken profile file is not deleted">
+It is **moved** aside, not removed, so you can inspect it and repair it. The
+log line names the backup file and the reason.
+</Callout>
+
+## Per-server bindings
+
+<Command command=".minecraft/config/inputbooster_server_profiles.properties" block label="Binding file" />
+
+A standard properties file. The key is the normalised server identifier and
+the value is the profile name:
+
+```properties
+example.com=Competitive
+hypixel.net=Slow
+singleplayer=Casual
+```
+
+### The identifier
+
+The identifier is normalised before it is used as a key:
+
+| Raw address | Key |
+| --- | --- |
+| `Example.com` | `example.com` |
+| `example.com:25565` | `example.com` |
+| `tcp://EXAMPLE.COM` | `example.com` |
+| `ws://example.com` | `example.com` |
+| `example.com/some/path` | `example.com` |
+| No server, singleplayer | `singleplayer` |
+| No server, main menu | `title` |
+| Detection failed | `unknown` |
+
+Write the normalised form when you edit the file by hand.
+
+### The profile name
+
+The value is matched against the profile names **exactly**, ignoring case.
+A name that does not exist is ignored: the log records nothing and your
+settings simply do not change.
+
+<Callout variant="warning" title="There is no UI for this file">
+The manager can write a binding, but no button calls it in 4.1.2-alpha. The
+file has to be created by hand while the game is closed. See
+[profiles](/docs/guide/profiles).
+</Callout>
+
+### Detection
+
+The server is detected once every 20 ticks, roughly once a second, using
+reflection over the vanilla server entry. The reflective lookups are
+individually guarded: a field that moved between Minecraft versions degrades
+to a stable identifier instead of throwing on the client tick.
+
+## Related pages
+
+- [Profiles](/docs/guide/profiles) — using the profile screen.
+- [The config file](/docs/configuration/config-file) — the main properties
+  file.
+- [Key reference](/docs/configuration/keys) — the config keys a profile does
+  and does not capture.

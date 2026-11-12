@@ -1,0 +1,8 @@
+# Normalise line endings: the repository stores LF, every platform checks out
+# with its own convention.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.woff binary
+*.woff2 binary

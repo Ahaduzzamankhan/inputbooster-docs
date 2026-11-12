@@ -1,0 +1,163 @@
+---
+title: "Validation"
+description: "Exactly what the mod does with a value it cannot parse, which keys are checked, and which are silently reset."
+order: 3
+group: "Behaviour"
+---
+
+<Lead>
+A broken config value costs you that one setting and nothing else. This page
+lists which keys are checked, which are not, and what the log says when
+something is reset.
+</Lead>
+
+## The load order
+
+<Steps>
+  <Step title="Reset to the documented defaults">
+    Every field is set back to its default before the file is read. Nothing
+    survives from the previous session unless the file says so.
+  </Step>
+  <Step title="Read the file">
+    The file is parsed as a Java properties file. A file that does not exist
+    causes the defaults to be written out instead.
+  </Step>
+  <Step title="Migrate">
+    If the schema version is older than 305, three legacy keys are renamed and
+    the version is updated.
+  </Step>
+  <Step title="Apply and clamp">
+    Each key is parsed and clamped into its allowed range.
+  </Step>
+  <Step title="Report">
+    Keys that could not be used are collected and named in one warning line.
+  </Step>
+</Steps>
+
+## Booleans
+
+Seven spellings are accepted, in any case:
+
+`true`, `yes`, `1`, `on` are true. `false`, `no`, `0`, `off` are false.
+
+Anything else falls back to the default. The comparison trims surrounding
+whitespace first, so ` true ` is valid.
+
+## Numbers
+
+An integer that cannot be parsed falls back to the default. A parsed value
+outside the allowed range is clamped:
+
+| Key | Below range | Above range |
+| --- | --- | --- |
+| `poll_rate_hz` | 60 | 1000 |
+| `max_cps` | 1 | 20 |
+| `overlay_position` | 0 | 3 |
+| `fps_check_interval` | 1 | 100 |
+| `engine_mode` | 0 | 2 |
+| `mouse_scroll_debounce_ms` | 0 | 200 |
+| `mouse_click_dedupe_ms` | 0 | 100 |
+| `overlay_mode` | 0 | 1 |
+| `overlay_scale` | 0.5 | 3.0 |
+| `overlay_opacity` | 0.0 | 1.0 |
+| `click_sound_pitch` | 0.5 | 2.0 |
+| `click_sound_volume` | 0.0 | 1.0 |
+
+The same clamping happens when a value is set through the settings screen, so
+a value in the file and a value in the UI cannot produce different runtime
+states.
+
+## The warning line
+
+```text
+Config entries reset to defaults (invalid or unparsable): poll_rate_hz=2000, combo_keys=maybe
+```
+
+A boolean is listed by name. A number is listed as `key=value` so you can see
+what was actually in the file.
+
+<Callout variant="note" title="One line, not one line per key">
+The report is a single warning listing every key that had to be reset. It is
+logged once per load, right before the "config loaded successfully" line.
+</Callout>
+
+## Which keys are checked
+
+These keys are validated and reported when they are bad:
+
+**Booleans:** `poll_rate_auto`, `sprint_fix`, `auto_sprint`, `wtap_assist`,
+`anti_idle`, `auto_strafe`, `cps_limiter`, `burst_mode`, `combo_keys`,
+`custom_keyboard_handler`, `keyboard_repeat_guard`, `compat_fallback`,
+`overlay_show_engine`, `overlay_show_events`, `overlay_show_overhead`.
+
+**Numbers:** `engine_mode`, `mouse_scroll_debounce_ms`,
+`mouse_click_dedupe_ms`, `overlay_mode`, `poll_rate_hz`, `max_cps`,
+`overlay_position`, `fps_check_interval`.
+
+<Callout variant="warning" title="Checked is not the same as used">
+Being validated does not mean a key affects anything. Four of the checked
+booleans — `keyboard_repeat_guard`, and the three others listed under
+[inert keys](/docs/configuration/keys#the-five-inert-keys) — are read nowhere
+that would change behaviour.
+</Callout>
+
+## Which keys are not checked
+
+These are not in the validation list. A bad value in one of them still falls
+back to the default, but it is **not** named in the warning line:
+
+`click_sounds`, `click_sound_pitch`, `click_sound_volume`, `replay_enabled`,
+`safe_mode`, `event_log`, `key_conflict_warn`, `per_server_profiles`,
+`show_f3_info`, `show_keystrokes`, `show_action_bar`, `debug_mode`,
+`cps_mode`, `config_version`.
+
+<Callout variant="info" title="Why the gap exists">
+The validation list was written to cover the keys whose failure would be
+surprising. The remaining keys are either booleans that behave identically
+when defaulted, or values that are clamped at read time anyway.
+</Callout>
+
+## Strings
+
+`cps_mode` is upper-cased with `Locale.ROOT` and stored. It is never checked
+against the four known names, so a typo produces a value that behaves like
+`FIXED` — the default arm of the switch — while the file says something
+else.
+
+## Migration
+
+Older schemas are migrated in place. The migration renames three keys:
+
+| Legacy key | Current key |
+| --- | --- |
+| `auto_sprint_key` | `auto_sprint` |
+| `watap` | `wtap_assist` |
+| `pollrate` | `poll_rate_hz` |
+
+A rename only happens when the current key is absent, so a file that already
+has the new key keeps its own value.
+
+<Callout variant="note" title="The migration is deliberately small">
+Schema versions 1 to 303 used the same key names and had no upgrade path.
+The current migration does not invent values or change semantics — it only
+renames the three keys that were spelled differently in very old builds.
+</Callout>
+
+## What a broken file cannot do
+
+| Situation | Result |
+| --- | --- |
+| The file does not exist | Defaults are written out |
+| The file is not readable | A warning is logged and the defaults are used |
+| A value is unparsable | That key is reset, the rest of the file is applied |
+| A value is out of range | It is clamped into range |
+| A key is missing | The default is used for it |
+
+There is no state in which a bad config file prevents the game from starting.
+
+## Related pages
+
+- [The config file](/docs/configuration/config-file) — format and location.
+- [Key reference](/docs/configuration/keys) — every key and what reads it.
+- [Log reference](/docs/troubleshooting/log-reference) — the log lines this
+  page mentions.

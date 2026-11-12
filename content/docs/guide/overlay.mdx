@@ -1,0 +1,129 @@
+---
+title: "The overlay"
+description: "What the InputBooster HUD overlay draws, the exact conditions under which it appears, and how to configure it."
+order: 5
+group: "Visibility"
+---
+
+<Lead>
+The overlay is a small panel drawn over the HUD. It shows the engine state,
+the event counters and the dispatch timing. It is off by default outside the
+F3 debug screen.
+</Lead>
+
+## When it draws
+
+All of these must be true:
+
+| Condition | Source |
+| --- | --- |
+| `show_f3_info` is on | The master switch |
+| A player exists | `mc.player != null` |
+| `overlay_opacity` is above 0.001 | `opacity > 0.001f` |
+| `overlay_mode` is 1, or the F3 debug screen is open | `overlay_mode` |
+
+The vanilla **HUD Overlay** option in the options screen must also be enabled,
+otherwise the game does not draw the HUD at all.
+
+<Callout variant="note" title="F3 only is the default">
+`overlay_mode` is `0` by default, which means the overlay only appears while
+the F3 debug screen is open. Set it to `1` to keep it on during normal play.
+</Callout>
+
+## What it shows
+
+| Line | Config that toggles it | Content |
+| --- | --- | --- |
+| Title | always | `InputBooster <version>` |
+| Engine | `overlay_show_engine` | The engine mode and the current rate in Hz |
+| Counters | `overlay_show_events` | Keys, mouse and actions, abbreviated above 1000 |
+| Dispatch | `overlay_show_overhead` | Mean dispatch cost in microseconds and the queue depth |
+| Warning | always, when relevant | `Custom keyboard handler is ALPHA` |
+
+A rendered panel looks like this:
+
+```text
+InputBooster 4.1.2-alpha
+Engine: poll  200 Hz
+Keys 1.2k  Mouse 430  Actions 880
+Dispatch 3.41 us  Queue 0/128
+```
+
+The counter line abbreviates: `1.2k` for 1200, `4.5m` for 4,500,000.
+
+<Callout variant="warning" title="No latency line on the overlay">
+The overlay shows dispatch timing, not input latency. `LatencyProfiler` keeps
+a rolling average and a peak, but those are not part of the overlay's line
+list — the peak is shown on the settings screen instead. Queue-to-drain time
+is also not a latency comparison against vanilla.
+</Callout>
+
+## Placement
+
+`overlay_position` selects one of four corners:
+
+| Value | Corner |
+| --- | --- |
+| 0 | Top-left (default) |
+| 1 | Top-right |
+| 2 | Bottom-left |
+| 3 | Bottom-right |
+
+The position is clamped inside the window, so the panel is never drawn off
+screen after a resize. A panel larger than the screen is pinned to 0 rather
+than drawn at a negative coordinate.
+
+```java
+int maxX = Math.max(0, screenWidth - panelWidth);
+int maxY = Math.max(0, screenHeight - panelHeight);
+return new Pos(clamp(x, maxX), clamp(y, maxY));
+```
+
+## Scale and opacity
+
+| Setting | Range | Default | Effect |
+| --- | --- | --- | --- |
+| `overlay_scale` | 0.5 to 3.0 | 1.0 | Multiplies the panel size and the glyphs together |
+| `overlay_opacity` | 0.0 to 1.0 | 0.8 | The alpha of the panel background |
+
+Opacity multiplies the panel background, not the text. The text colours are
+full-alpha ARGB values.
+
+<Callout variant="info" title="Why the text was invisible before 4.1.0">
+The earlier implementation passed `0x55FFFF` and `0xFFAA00` as glyph colours.
+Those are RGB values with an alpha byte of zero, and the GUI treats a zero
+alpha as "do not draw". The panel drew and every line in it was transparent.
+The colours are now ARGB with `0xFF` alpha.
+</Callout>
+
+## Cost
+
+The overlay's text is rebuilt at most four times a second — a 250&nbsp;ms
+interval — and the result is kept in a reused array. The per-frame cost is one
+render-state submission per line, not string formatting every frame.
+
+## The keystrokes overlay
+
+`show_keystrokes` exists as a config key, a settings toggle and a profile
+field. There is **no renderer** for it in 4.1.2-alpha, so no keystroke display
+appears anywhere.
+
+<Callout variant="warning" title="Inert setting">
+The toggle changes `show_keystrokes` in the config file and nothing else. The
+key is persisted and validated, which is why it looks like a working feature.
+See [limitations](/docs/reference/limitations) for the full list of settings
+that are stored but have no runtime effect.
+</Callout>
+
+## The alpha handler warning
+
+When `custom_keyboard_handler` is on, the overlay adds a warning line. It is
+the only line that uses the warn colour, and it is prefixed with `!` internally
+to select that colour.
+
+## Related pages
+
+- [The settings screen](/docs/guide/settings) — the Overlay tab.
+- [Diagnostics](/docs/troubleshooting/diagnosing-input) — reading the counters
+  when something is wrong.
+- [Limitations](/docs/reference/limitations) — inert settings.

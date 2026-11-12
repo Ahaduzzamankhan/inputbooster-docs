@@ -1,0 +1,153 @@
+---
+title: "The action queue"
+description: "The bounded queue between the poller and the tick: its capacity, its locking, its drop rules and its interaction with replay."
+order: 2
+group: "Semantics"
+---
+
+<Lead>
+The queue is the boundary between two threads. It is bounded at 128 entries,
+lock-guarded, and every rejection is counted rather than hidden.
+</Lead>
+
+## The contract
+
+```java
+private static final int MAX_QUEUED = 128;
+private static final ConcurrentLinkedQueue<InputAction.Stamped> QUEUE = new ConcurrentLinkedQueue<>();
+private static final AtomicInteger COUNT = new AtomicInteger(0);
+private static final Object LOCK = new Object();
+```
+
+| Property | Value |
+| --- | --- |
+| Capacity | 128 entries |
+| Structure | `ConcurrentLinkedQueue` with an explicit counter |
+| Guard | One lock around every counter and content mutation |
+| Full behaviour | The action is rejected and counted as dropped |
+| Clearing | Used when a screen opens, when the world changes and on shutdown |
+
+## Why the counter exists
+
+`ConcurrentLinkedQueue.size()` is O(n). The counter makes the size a constant
+time read, which matters because the overlay and the settings screen read it
+while the poller is running.
+
+## Why the lock exists
+
+An earlier version incremented the counter outside the lock. The polling
+thread could then be between its increment and its `offer()` when
+`clear()` ran: the polled event was lost, but the count still said "one less",
+so the queue could grow past 128 and defeat the bounded-backlog guarantee the
+architecture depends on.
+
+```java
+public static boolean queue(InputAction action, InputAction.Origin origin) {
+    synchronized (LOCK) {
+        if (COUNT.get() >= MAX_QUEUED) return false;
+        QUEUE.offer(InputAction.Stamped.of(action, origin));
+        COUNT.incrementAndGet();
+        return true;
+    }
+}
+```
+
+<Callout variant="info" title="The lock is not a hot-path cost">
+It is uncontended apart from a few microseconds per event, and it is held
+only around two operations: a comparison and an offer.
+</Callout>
+
+## The stamped record
+
+```java
+public record Stamped(InputAction action, long capturedAt, Origin origin) {
+    public static Stamped of(InputAction action, Origin origin) {
+        return new Stamped(action, System.nanoTime(), origin);
+    }
+}
+```
+
+The capture timestamp is taken when the action is queued, which is as close to
+the physical press as the mod can measure. `LatencyProfiler` compares it with
+the drain time.
+
+## Pending physical events
+
+```java
+public static int pendingPhysical() {
+    synchronized (LOCK) {
+        int physical = 0;
+        for (InputAction.Stamped stamped : QUEUE) {
+            if (!stamped.isReplay()) physical++;
+        }
+        return physical;
+    }
+}
+```
+
+The replay recorder calls this. When the number is above zero, playback holds
+back and rewinds its clock slightly, so a recording can never be injected on
+top of a live click.
+
+## When the queue is cleared
+
+| Moment | Why |
+| --- | --- |
+| A screen opens | The keys belong to the screen |
+| The drainer finds a screen open | Same, checked again on the game thread |
+| The world is left or reloaded | Transient state must not carry into the next session |
+| The mod is not active or not initialised | Nothing should execute |
+| Safe Mode disabled the `input` module | The execution layer is off |
+| Shutdown | The poller is stopped |
+
+<Callout variant="warning" title="Clearing is destructive">
+An action that is cleared is gone. It is not re-queued and it is not
+replayed. A tap that happened while a screen was open is simply not executed,
+which is correct: that input belonged to the screen.
+</Callout>
+
+## What happens when it is full
+
+The action is rejected. `InputEventDispatcher.submit` counts it as a dropped
+action and returns false. The caller does not retry — the physical press is
+lost.
+
+In practice, 128 entries is far more than a tick can consume unless the
+client is severely behind: at 1000&nbsp;Hz, a tick that takes 128&nbsp;ms
+would be needed to fill it.
+
+<Callout variant="info" title="The replay path is different">
+The replay recorder does not drop an event when the queue is full. It leaves
+the playback index where it is and retries on the next tick. After 20
+consecutive stalled ticks — about a second — it gives up on that one event,
+counts it and moves on.
+</Callout>
+
+## The suppression tokens
+
+Two tick-scoped tokens live next to the queue:
+
+```java
+private static final AtomicInteger TICK = new AtomicInteger(1);
+private static volatile int attackHandledTick = -1;
+private static volatile int useHandledTick = -1;
+```
+
+`beginTick()` expires the tokens from earlier ticks. A token carries the tick
+id it was issued in, so a missed or reordered call can never suppress a
+legitimate attack on a later tick.
+
+## Reading the queue
+
+| Source | Shows |
+| --- | --- |
+| The overlay | `Queue <size>/128` on the dispatch line |
+| The Overview tab | The queue depth |
+| `InputActionQueue.size()` | The current count |
+| `InputActionQueue.capacity()` | Always 128 |
+
+## Related pages
+
+- [Action semantics](/docs/reference/actions) — what each action does.
+- [Input pipeline](/docs/developers/input-pipeline) — the full path.
+- [Replay and logs](/docs/guide/replay-and-logs) — how replay uses the queue.

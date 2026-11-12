@@ -1,0 +1,126 @@
+---
+title: "Limitations"
+description: "Everything 4.1.2-alpha does not do, including settings that are stored but have no runtime effect."
+order: 4
+group: "Semantics"
+---
+
+<Lead>
+This page lists the gaps. It is deliberately long, because a setting that
+looks live and is not is worse than a missing one.
+</Lead>
+
+## The alpha itself
+
+`4.1.2-alpha` is the current source tree. The input engine and the new
+settings screen are new code and **have not been tested in a running client**.
+`4.0.3-stable` is the last stable build.
+
+<Callout variant="danger" title="There is no benchmark">
+The repository states that the mod has not been benchmarked in a running
+client. No FPS figure, no latency improvement figure and no comparison with
+vanilla appears anywhere in this documentation, because none was measured.
+The internal profiler measures queue-to-drain time inside the mod, which is a
+different quantity.
+</Callout>
+
+## Settings that are stored but have no effect
+
+These five keys are written to the config file, validated, and reachable from
+the settings screen. No runtime behaviour depends on them.
+
+| Key | What you would expect | What actually happens |
+| --- | --- | --- |
+| `show_keystrokes` | A keystroke display | There is no renderer. Nothing is drawn |
+| `fps_check_interval` | FPS sampled every N ticks | The adaptive rate is recomputed every client tick |
+| `keyboard_repeat_guard` | Toggle for "a held key is one press" | Repeat events are discarded unconditionally, before the toggle is read |
+| `debug_mode` | Verbose diagnostics | No log statement is gated on it |
+| `click_sound_volume` | A quieter click sound | The sound instance is created with the pitch only |
+
+<Callout variant="warning" title="The behaviour is still safe">
+In every case the default behaviour is the sensible one. A held key is one
+press, the adaptive rate follows the frame rate, and the overlay is the only
+thing that draws. The problem is that the interface implies a control that
+does nothing.
+</Callout>
+
+## Features that exist but have no interface
+
+| Feature | State |
+| --- | --- |
+| The event log | Collected, bounded at 80 entries and correctly trimmed. **No viewer.** Only the internal `snapshot()` and `latest()` accessors |
+| Config import, export and presets | Implemented in `ConfigTools`. **No button calls them.** The `pvp`, `low_fps`, `debug` and `balanced` presets are unreachable |
+| Per-server profile bindings | `PerServerProfileManager.bind()` writes the file correctly. **No button calls it.** The binding file has to be written by hand |
+
+## Behaviour that is narrower than it sounds
+
+| Setting | Reality |
+| --- | --- |
+| `show_action_bar` | Gates the burst mode start and end messages only. The replay, profile and combo key messages are sent regardless |
+| `cps_mode` | Never validated. An unknown value behaves exactly like `FIXED`, because that is the default arm of the switch |
+| `mouse_scroll_debounce_ms` | The debounce works, but scroll is only counted. The mod never applies scroll input |
+| The overlay | Has no latency average or peak line. Those values live in the profiler and are shown on the settings screen instead |
+
+## The action rules
+
+Some actions are deliberately narrow:
+
+- **Attack** only fires against a living entity within 36 squared units — the
+  vanilla melee reach. Nothing is ever attacked at a longer distance.
+- **Use** only fires when the crosshair hits nothing. A chest, a lever or an
+  entity goes back to vanilla's own `startUseItem()`.
+- **Block breaking** is never handled by the mod. It is a held-key mechanic
+  that vanilla already runs every tick.
+- **The offhand swap** is never handled by the mod.
+- **Pick block** needs the accessor mixin to have applied. If it did not, the
+  log says so once and pick-block input is disabled for the session.
+
+## Compatibility
+
+| Limit | Detail |
+| --- | --- |
+| Six known input mods | Controlify, Midnight Controls, Controllable, Sodium, Iris and Zoomify are detected by class name. A mod that owns input routing but is not on the list will not trigger the fallback |
+| The alpha keyboard handler | May pass a key twice or drop it on an untested version or mod combination |
+| The event hooks | `require = 0`, so a renamed target degrades to polling instead of crashing. The startup log says whether they applied |
+| The screen router | Falls back to a per-tick HUD check if neither screen hook applied |
+
+## Versions and platforms
+
+| Limit | Detail |
+| --- | --- |
+| Minecraft 26.2 and 26.3 only | No 1.21.x build exists in this tree. The 1.21 jars come from an older codebase with different behaviour |
+| No NeoForge build for 26.3 | The NeoForge project targets 26.2 only |
+| Java 25 | Required by the mixin manifest and by the Fabric metadata |
+| Fabric Loader 0.19.0+ | The bracket-range bug in loader 0.19.5 is worked around, not fixed |
+
+## The archived API
+
+The public API repository is **no longer maintained**. It targets Minecraft
+`>=1.21 <1.22` on Java 21 with Fabric only, and it is not wired into the
+26.x tree. Anything built against it will not work with this mod. See the
+[archived API page](/docs/releases/archived-api).
+
+## Known documentation discrepancies
+
+The README and the source disagree in two places. This site documents the
+source.
+
+| README says | Source does |
+| --- | --- |
+| The key bindings are in an InputBooster category | They are registered under `KeyMapping.Category.MISC` |
+| The event mixins target `MouseHandler.onPress/onScroll` | They target `onButton` and `onScroll`; `onPress` does not exist in 26.x |
+
+## What the mod will never do
+
+- Generate input without a physical press.
+- Extend reach or change hit registration.
+- Cancel another mod's key events or remap another mod's bindings.
+- Replace vanilla's `KeyboardHandler` or `MouseHandler`.
+- Send anything to a server that vanilla would not send.
+- Claim a performance improvement it has not measured.
+
+## Related pages
+
+- [Key reference](/docs/configuration/keys) — the five inert keys in context.
+- [Action semantics](/docs/reference/actions) — the exact conditions.
+- [Support matrix](/docs/releases/support-matrix) — what is published.
