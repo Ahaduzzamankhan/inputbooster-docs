@@ -216,6 +216,11 @@
     margin: 1.05rem 0;
   }
 
+  /* The lead block wraps a paragraph, so the inner margin has to go. */
+  .lead p {
+    margin: 0;
+  }
+
   .prose-docs h2 {
     margin: 3.4rem 0 1.1rem;
     padding-top: 1.35rem;

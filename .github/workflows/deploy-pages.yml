@@ -57,6 +57,9 @@ jobs:
           NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
           NEXT_PUBLIC_SITE_URL: ${{ steps.pages.outputs.origin }}${{ steps.pages.outputs.base_path }}
 
+      - name: Check the built HTML for invalid nesting
+        run: npm run check:nesting
+
       - name: Upload the Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:

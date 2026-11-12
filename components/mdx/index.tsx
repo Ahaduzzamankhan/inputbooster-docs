@@ -86,11 +86,20 @@ function Img({ alt = "", ...rest }: ComponentPropsWithoutRef<"img">) {
   return <img alt={alt} loading="lazy" {...rest} />;
 }
 
+/**
+ * The lead paragraph.
+ *
+ * This is a div, not a p: MDX parses the children of a block element as
+ * markdown, so they arrive as a paragraph. A p inside a p is invalid HTML —
+ * the browser closes the outer element while parsing, and React then finds a
+ * different tree on the client than the one the server sent. That is a
+ * hydration error, not a cosmetic one.
+ */
 export function Lead({ children }: { children: ReactNode }) {
   return (
-    <p className="lead not-prose mb-7 border-l border-line-bright pl-4 text-[1.03rem] leading-relaxed text-fog-300">
+    <div className="lead not-prose mb-7 border-l border-line-bright pl-4 text-[1.03rem] leading-relaxed text-fog-300">
       {children}
-    </p>
+    </div>
   );
 }
 
