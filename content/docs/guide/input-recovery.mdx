@@ -83,10 +83,10 @@ there is no action.
 
 ## Counting
 
-The mod keeps a `recoveredInputs` counter, incremented every time an action is
-successfully queued. The Overview tab shows the session total, and the session
-statistics track an estimate of how many inputs would have been missed without
-the mod.
+The mod keeps a `recoveredInputs` counter, incremented when an action is
+successfully queued. The current settings UI has no Overview tab or session
+total graph. The overlay exposes live keyboard, mouse and submitted-action
+counters; the missed-input estimate remains an internal session statistic.
 
 <Callout variant="warning" title="The estimate is a heuristic">
 The estimate is computed from the FPS history and the recovered count using a
@@ -107,8 +107,8 @@ and not a comparison with vanilla. The repository states that no client
 benchmark exists, so this site publishes no FPS or latency-improvement figure.
 </Callout>
 
-The Advanced tab can reset the peak. The profiler itself is not shown on the
-overlay.
+The profiler's peak is tracked internally. The current settings UI and overlay
+do not display the profiler's queue-to-drain samples or peak.
 
 ## When recovery does not happen
 

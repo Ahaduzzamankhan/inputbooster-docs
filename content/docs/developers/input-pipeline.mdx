@@ -258,7 +258,7 @@ The drainer is where the action semantics live. The full table is in the
 
 | Action | Rule |
 | --- | --- |
-| `ATTACK_PRESSED` | Only for a living entity within squared distance 36 |
+| `ATTACK_PRESSED` | Only for a living entity within squared distance 9 |
 | `ATTACK_PRESSED` on a block | Nothing — block breaking is a held-key mechanic that vanilla already handles every tick |
 | `USE_PRESSED` | Only when the hit result is `MISS`; a chest or a lever goes back to `startUseItem()` |
 | `JUMP_PRESSED` | Only when the player is on the ground, in water, in lava or climbing |
@@ -272,8 +272,8 @@ actions submitted, actions dropped, duplicates suppressed, repeats ignored,
 and the mean dispatch cost in nanoseconds.
 
 <Callout variant="info" title="The counters are the debug surface">
-They are what the overlay's event line shows and what the Overview tab
-reports. They are the fastest way to tell "the event hook never fired" from
+They are what the overlay's event line shows. The current settings UI has no
+Overview tab or in-game session graph. They are the fastest way to tell "the event hook never fired" from
 "the queue was full".
 </Callout>
 

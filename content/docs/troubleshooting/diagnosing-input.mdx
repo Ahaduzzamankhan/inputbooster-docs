@@ -1,172 +1,108 @@
 ---
 title: "Diagnosing input"
-description: "A systematic way to find out where an input is being lost, from the counters down to the source."
+description: "Trace a missed action through the event hooks, engine, queue and game-thread drainer using the current overlay and logs."
 order: 3
 group: "Fix it"
 ---
 
 <Lead>
-When an input does not arrive, the problem is always in one of five places.
-This page walks them in order, from the cheapest check to the deepest.
+The current settings UI has no Overview or Compatibility tab. Use the HUD overlay for live counters and the client log for hook/fallback decisions.
 </Lead>
 
-## The five places an input can be lost
+## 1. Open the overlay
 
-<Mermaid
-  chart={`flowchart TB
-    A[1. Physical press] --> B[2. Poller or event hook]
-    B --> C[3. Engine state]
-    C --> D[4. Queue]
-    D --> E[5. Drainer]
-    E --> F[Vanilla call]
-    A -.->|not observed| B
-    B -.->|no edge| C
-    C -.->|rejected| D
-    D -.->|cleared| E
-    E -.->|condition failed| F`}
-  caption="Each stage has its own counter or log line. Start at the top."
-/>
+Join a world and open F3. With the defaults, the overlay is visible while the debug screen is open. It shows:
 
-## Stage 1 — is the press even reaching the game?
-
-Open the settings screen, go to Overview, and read the **Keys** and **Mouse**
-counters.
-
-| Symptom | Conclusion |
+| Line | What it tells you |
 | --- | --- |
-| Both counters stay at zero | No event is arriving. Check the log for `All client hooks present.` and whether the client is running the mod at all |
-| The counters rise when you press keys | Events are arriving. Move to stage 2 |
+| Engine | Selected engine mode and current poll rate |
+| Events | Keyboard, mouse and submitted-action counters |
+| Dispatch | Mean dispatch time and queue depth |
 
-<Callout variant="note" title="The counters are cumulative">
-They count every event since the mod started, including repeats and scroll.
-They do not reset on a screen open.
-</Callout>
+If you want the panel outside F3, set <code>overlay_mode=1</code>. Ensure <code>show_f3_info=true</code> and the vanilla HUD is enabled.
 
-## Stage 2 — which source is live?
+## 2. Confirm the event hooks
 
-The Compatibility tab shows whether the event hooks applied and which mode the
-engine resolved.
+Look in <code>latest.log</code> for:
 
-| Engine mode | What it means |
+~~~text
+[Compat] Keyboard/mouse event hooks are live.
+~~~
+
+If this line never appears after pressing a key or mouse button, check the startup mixin lines and the exact Minecraft jar. The current 26.x project has version-signature tests, but a successful build is not a headless client startup test.
+
+## 3. Read the engine mode
+
+The engine can use automatic, event or poll mode. The General Sodium page, or the Input engine section of the vanilla settings screen, exposes the configured mode and compatibility fallback.
+
+| Overlay state | Meaning |
 | --- | --- |
-| `event` | The hooks are live and dispatching |
-| `poll` | The poller is the source |
+| Event | Event hooks have fired and the engine is using event input |
+| Poll | The poller is the active source |
+| Automatic | The engine chooses based on live hooks and compatibility fallback |
 
-If the mode is `poll` and you expected `event`, one of these is true:
+Automatic fallback checks four Fabric mod IDs: Controlify, Midnight Controls, Controllable and Zoomify. Sodium and Iris are rendering mods and do not trigger this fallback. Other input-routing mods may not be detected.
 
-| Cause | Check |
+## 4. Compare the counters
+
+The overlay event line reports keyboard events, mouse events and submitted actions.
+
+| Comparison | Likely location |
 | --- | --- |
-| The hooks never fired | The log line `Keyboard/mouse event hooks are live.` is missing |
-| An input mod is installed | The Compatibility tab lists it. The fallback downgrades to polling |
-| `engine_mode` is 1 but the hooks are not live | Event mode falls back to polling until the first event proves the hooks work |
+| Keyboard/mouse counters do not rise | The event is not reaching the observer; inspect hook application and focus |
+| Input counters rise but submitted actions do not | The event is not mapped to one of the twelve tracked bindings, or no state edge occurred |
+| Submitted actions rise | The dispatcher accepted actions; continue to the queue/drainer check |
 
-## Stage 3 — is the edge being detected?
+The counters are cumulative for the session. They are not the number of actions that ultimately succeeded in the game.
 
-The Overview tab's **Engine** row shows the mode. The overlay's counter line
-shows the action count:
+## 5. Check the queue
 
-```text
-Keys 1.2k  Mouse 430  Actions 880
-```
-
-`Actions` is the number of actions that were submitted to the dispatcher.
-
-| Comparison | Conclusion |
-| --- | --- |
-| Keys and mouse rise, actions do not | The event is not reaching a tracked slot |
-| Actions rise, the queue stays at 0 | The actions are being drained immediately |
-| Actions rise, the queue sits at 128 | The drainer is not running |
-
-<Callout variant="info" title="A key the mod does not track">
-Only the twelve tracked bindings produce actions. A key bound to something
-else — a mod binding, a macro key — raises the event counters but produces no
-action. That is expected.
-</Callout>
-
-## Stage 4 — is the queue full?
+The dispatch line includes queue depth:
 
 | Reading | Meaning |
 | --- | --- |
-| `Queue 0/128` | Empty. Nothing is waiting |
-| `Queue 127/128` or `128/128` | The drainer is not keeping up, or it is not running |
-| `Queue` growing steadily | The drainer is not running at all |
+| <code>Queue 0/128</code> | No pending actions |
+| Queue near 128 | The drainer may not be keeping up |
+| Queue stays full | The drainer may be blocked or failing |
 
-A full queue means new actions are rejected. The physical press is lost. Look
-for the drainer's failure lines in the log.
+The queue is bounded at 128. A new action is rejected when it is full. Check the log for per-action errors and Safe Mode messages.
 
-## Stage 5 — did the drainer execute it?
+## 6. Check drainer preconditions
 
-The drainer runs at the head of the tick. It refuses to execute when:
+The game-thread drainer refuses to execute actions when there is no player/game mode, the mod is inactive, Safe Mode disabled the input module, or a screen is open. A screen-open queue clear is intentional: clicks inside a chest or chat belong to that screen.
 
-| Condition | How to confirm |
+Look for:
+
+~~~text
+[SafeMode] Module 'input' disabled after 5 errors
+[InputBooster] ATTACK_PRESSED failed: ...
+~~~
+
+## 7. Check the action's own condition
+
+Even a successfully queued action can be ignored when its precondition is false:
+
+| Action | Condition |
 | --- | --- |
-| A screen is open | The screen hook line in the log |
-| There is no player | Obvious |
-| The mod is not active or not initialised | The `Fatal init error!` line |
-| Safe Mode disabled the `input` module | The `[SafeMode] Module 'input' disabled` line |
+| <code>ATTACK_PRESSED</code> | Crosshair target is a living entity within vanilla melee reach: three blocks, squared distance 9 |
+| <code>USE_PRESSED</code> | Crosshair result is <code>MISS</code>; blocks and entities return to vanilla |
+| <code>JUMP_PRESSED</code> | Player is grounded, in water, in lava or climbing |
+| <code>FORWARD_RELEASED</code> | Forward key is genuinely up |
+| <code>PICK_BLOCK_PRESSED</code> | Crosshair is on a block and the accessor hook applied |
 
-## The per-action conditions
+See the [action reference](/docs/reference/actions) for every action.
 
-Even when an action reaches the drainer, it may do nothing. Check the
-condition for that action:
+## Quick checklist
 
-| Action | Fails when |
-| --- | --- |
-| `ATTACK_PRESSED` | The hit result is not a living entity within 36 squared units |
-| `USE_PRESSED` | The hit result is not `MISS` |
-| `JUMP_PRESSED` | The player is not grounded, in water, in lava or climbing |
-| `FORWARD_RELEASED` | The forward key is still down |
-| `PICK_BLOCK_PRESSED` | The crosshair is not on a block, or the accessor did not apply |
-
-The [action reference](/docs/reference/actions) has the exact rule for each.
-
-## The systematic checklist
-
-<Steps>
-  <Step title="Read the log">
-    `Ready!` present? Any `Fatal init error!`? Any `Missing vanilla method(s)`?
-    Any `[SafeMode]` line?
-  </Step>
-  <Step title="Check the mixin hooks">
-    `All client hooks present.` and at least one screen hook `true`?
-  </Step>
-  <Step title="Read the counters">
-    Do the key and mouse counters move when you press?
-  </Step>
-  <Step title="Read the engine mode">
-    Is it the mode you expected? If it fell back, why?
-  </Step>
-  <Step title="Read the queue">
-    Is it empty? Is it full? Both are informative.
-  </Step>
-  <Step title="Check the action condition">
-    Is the action's precondition actually satisfied in the situation where it
-    fails?
-  </Step>
-  <Step title="Rule out other mods">
-    Disable the other input mods one at a time. The detector only knows six of
-    them.
-  </Step>
-</Steps>
-
-## A quick self-test
-
-The clearest test of the whole path:
-
-1. Join a world.
-2. Open the settings screen and note the **Keys** and **Actions** counters.
-3. Tap the attack key five times quickly.
-4. Watch the counters.
-
-| Result | Where the problem is |
-| --- | --- |
-| Keys did not rise | Stage 1 — the event never arrived |
-| Keys rose, Actions did not | Stage 3 — the edge was not detected |
-| Actions rose, the queue stayed full | Stage 4 — the drainer is not running |
-| Actions rose, the queue emptied, no attack happened | Stage 5 — the action condition failed |
+- [ ] Overlay event counters increase when you press a tracked key.
+- [ ] The log confirms the keyboard/mouse hooks are live.
+- [ ] The engine mode is expected for the installed input mods.
+- [ ] Queue depth does not remain at 128.
+- [ ] The action's target and state conditions are satisfied.
+- [ ] No Safe Mode or per-action failure line appears.
 
 ## Related pages
 
-- [Log reference](/docs/troubleshooting/log-reference) — every line.
-- [Common issues](/docs/troubleshooting/common-issues) — the fixes.
-- [Engine modes](/docs/developers/engine-modes) — why the mode is what it is.
+- [Log reference](/docs/troubleshooting/log-reference) — startup and failure messages.
+- [Common issues](/docs/troubleshooting/common-issues) — targeted fixes.
+- [Engine modes](/docs/developers/engine-modes) — automatic fallback rules.
