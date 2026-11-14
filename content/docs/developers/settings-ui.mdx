@@ -1,174 +1,59 @@
 ---
 title: "Settings UI"
-description: "How the InputBooster settings screens are built: the panel layout, the seven tabs, the profiles screen and the alpha warning."
+description: "How Sodium's optional configuration pages and the vanilla fallback screen are wired."
 order: 5
 group: "Screens"
 ---
 
 <Lead>
-The settings screen is hand-built on Minecraft's `Screen` API. There is no
-widget library and no layout engine: every row is placed by coordinate.
+The old custom window and its separate profile screen have been removed. The current UI has an optional Sodium Config API entrypoint and a vanilla screen used as the fallback.
 </Lead>
 
-## The panel
+## Entry points
 
-The screen draws a floating panel over the vanilla options screen rather than
-replacing it.
-
-| Constant | Value | Purpose |
+| Entry point | When it is available | Opens |
 | --- | --- | --- |
-| `RAIL_WIDTH` | 100 | The width of the tab rail |
-| `HEADER_H` | 44 | The header height, which is also the drag area |
-| `MIN_PANEL_W` | 380 | The minimum width |
-| `MIN_PANEL_H` | 260 | The minimum height |
+| Sodium Config API | 26.x builds when a compatible Sodium release is installed | Four native pages in Sodium Video Settings |
+| Options screen button | All current builds | <code>InputBoosterVanillaScreen</code> |
+| Mod Menu | When Mod Menu is installed | <code>InputBoosterVanillaScreen</code> |
 
-The panel opens at up to 560 x 460, clamped to the window. The position is
-centred on the first open.
+The 1.21.x projects do not declare the Sodium Config API entrypoint. Their supported settings route is the vanilla screen.
 
-```java
-int maxW = Math.max(MIN_PANEL_W, this.width - 16);
-int maxH = Math.max(MIN_PANEL_H, this.height - 8);
-panelW = savedPanelW == 0 ? Math.min(560, maxW) : clamp(savedPanelW, MIN_PANEL_W, maxW);
-panelH = savedPanelH == 0 ? Math.min(460, maxH) : clamp(savedPanelH, MIN_PANEL_H, maxH);
-```
+## Sodium integration
 
-## Moving and resizing
+The 26.x project keeps Sodium API references in the optional compatibility package. The entrypoint registers four pages:
 
-| Gesture | Result |
-| --- | --- |
-| Drag inside the header | Moves the panel |
-| Drag the bottom-right grip | Resizes the panel, down to 380 x 260 |
-| Wheel over the content | Scrolls the content |
-| Drag the scrollbar | Scrolls the content |
+- **General:** polling, engine mode and compatibility fallback.
+- **Features:** movement helpers, combo keys, CPS limiter and burst mode.
+- **Overlay:** visibility, placement, appearance and diagnostics.
+- **Advanced:** input handling, safety, replay, profiles and click feedback.
 
-The content area scrolls; the tab rail and the footer do not. Rows that do
-not fit the viewport are hidden rather than drawn over the header or the
-footer.
+Sodium is not bundled into the jar. The build compiles against the Config API as a compile-only dependency and verifies that Sodium and Mod Menu classes are not packaged. If the optional integration cannot link at runtime, the mod logs the integration failure and retains the vanilla settings route.
 
-<Callout variant="info" title="Why the content scrolls">
-In 4.1.0 the panel was taller than the window on a small display, and controls
-below the fold — including Save &amp; Close in some sections — could not be
-reached at all. The scrollable content area was the fix in 4.1.2-alpha.
-</Callout>
+The option storage handler writes to the same <code>InputBoosterConfig</code> persistence layer as the fallback screen. Reset-to-default values come from <code>InputBoosterConfig.Defaults</code>.
 
-## Session-only geometry
+## Vanilla fallback screen
 
-The size and position are held in static fields:
+<code>InputBoosterVanillaScreen</code> uses vanilla buttons, cycle controls and sliders. Its six sections are Polling, Input engine, Movement assistance, Click limiter, Overlay, and Safety and feedback.
 
-```java
-private static int savedPanelW, savedPanelH;
-private static int savedPanelX = Integer.MIN_VALUE;
-private static int savedPanelY = Integer.MIN_VALUE;
-```
+Controls save their values when changed. There is no custom window geometry, tab rail, Save & Close action or separate profile-management screen.
 
-They survive closing and reopening the screen within one session and are never
-written to the config file. A view preference is not a mod setting.
+The Options screen mixin adds the InputBooster button. The Mod Menu entrypoint opens the same fallback screen when that mod is installed.
 
-## The seven tabs
+## Profile behavior
 
-```java
-private enum Tab {
-    OVERVIEW("Overview"),
-    KEYBOARD("Keyboard"),
-    MOUSE("Mouse"),
-    OVERLAY("Overlay"),
-    PERFORMANCE("Performance"),
-    COMPATIBILITY("Compatibility"),
-    ADVANCED("Advanced");
-}
-```
+<code>ProfileManager</code> still supports profile capture, apply, save and delete operations internally, and <code>PerServerProfileManager</code> can load a bound profile. No current player-facing settings screen or client command calls the profile save/load/delete methods. The JSON profile file and server binding properties file therefore remain manual configuration surfaces.
 
-Each tab has a one-line description under its name in the rail, for example
-`Live state, active features, session summary` for Overview and
-`Other input mods and fallback behaviour` for Compatibility.
+## Implementation rules
 
-Switching tabs rebuilds the widgets:
-
-```java
-switch (tab) {
-    case OVERVIEW -> buildOverview();
-    case KEYBOARD -> buildKeyboard();
-    ...
-}
-```
-
-## Widgets
-
-The screen uses four custom widget types, all built in the same file.
-
-| Widget | Behaviour |
-| --- | --- |
-| `SettingSlider` | Integer-backed. Floats are stored as hundredths, so `overlay_scale` is a slider from 50 to 300 |
-| Toggle | A button that flips a boolean config value |
-| Action button | Runs a lambda — resync, reset counters, open the profiles screen |
-| Text row | A label drawn directly, not as a widget |
-
-Every widget writes a real config value through the setter, and sets
-`hasChanges = true`.
-
-<Callout variant="warning" title="The rule the rework enforced">
-A control that does not write a config value is a lie in the interface. The
-4.1.x settings rework was partly about removing exactly that — which is why
-the inert keys are documented on the
-[key reference page](/docs/configuration/keys#the-five-inert-keys) rather
-than hidden.
-</Callout>
-
-## Saving and closing
-
-```java
-@Override
-public void onClose() {
-    if (hasChanges) InputBoosterConfig.save();
-    if (this.minecraft != null) this.minecraft.setScreenAndShow(parent);
-}
-```
-
-The footer has two buttons:
-
-| Button | Behaviour |
-| --- | --- |
-| Save &amp; Close | Saves if anything changed, then closes |
-| Close | Closes without forcing a save |
-
-Because the values apply immediately, "Close" only skips the write. The file
-is written again at shutdown.
-
-## The profiles screen
-
-`ProfilesScreen` is a separate screen with the same visual language: one back
-button, the same palette, the same row rhythm.
-
-It offers a **Save** button per profile, a **Load** button and a **Delete**
-button per profile, and a **Back** button. It is reached from the Advanced tab
-through **Manage profiles**.
-
-<Callout variant="warning" title="Two things are missing from it">
-There is no button that binds a profile to a server, even though the manager
-can do it. And there is no event log viewer, even though the event log is
-collected and bounded. Both are implemented on one side only.
-</Callout>
-
-## The alpha warning screen
-
-`KeyboardHandlerWarningScreen` is shown before the custom keyboard handler is
-enabled. It exists because the handler is alpha: an untested Minecraft or mod
-combination can route input differently, and the handler may then pass a key
-twice or drop it.
-
-While the handler is on, a red line stays on the settings screen and the
-overlay adds a warning line.
-
-<Callout variant="info" title="The chat-jump fix does not need it">
-The screen router that stops a space typed in chat from becoming a jump works
-through the screen-tracking mixin, not through the custom handler. The alpha
-handler is a different, deeper change.
-</Callout>
+- Keep optional Sodium classes isolated from the common vanilla screen.
+- Do not make Sodium a required dependency.
+- Use <code>InputBoosterConfig.Defaults</code> as the single source of reset values.
+- Save changes through the existing config persistence layer.
+- Keep the vanilla screen functional when Sodium or Mod Menu is absent.
 
 ## Related pages
 
-- [The settings screen](/docs/guide/settings) — the player-facing tour.
-- [Feature managers](/docs/developers/feature-managers) — what a control has
-  to be wired to.
-- [Mixin inventory](/docs/reference/mixins) — the mixin that adds the options
-  button.
+- [Settings](/docs/guide/settings) — player-facing controls.
+- [Architecture](/docs/developers/architecture) — project and package boundaries.
+- [Building and testing](/docs/developers/building-and-testing) — compile-time dependency checks.

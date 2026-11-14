@@ -1,109 +1,46 @@
 ---
 title: "Client only"
-description: "What InputBooster sends to a server, what it cannot do, and why there is no server-side component."
+description: "What InputBooster runs on the client, what the server receives, and the limits of the action path."
 order: 3
 group: "Deployment"
 ---
 
 <Lead>
-InputBooster runs entirely in your client. A server does not install it, does
-not detect it, and cannot see it. Every action the mod produces ends in an
-ordinary vanilla client call.
+Every current artifact is a Fabric client mod. A server does not install InputBooster and does not need a companion plugin.
 </Lead>
 
 ## Where it runs
 
-The mod metadata declares the client side in both loaders:
-
-<Tabs>
-  <Tab label="Fabric">
-```json
-"environment": "client",
-"entrypoints": {
-  "client": [
-    "dev.inputbooster.platform.InputBoosterFabric"
-  ]
-}
-```
-  </Tab>
-  <Tab label="NeoForge">
-```toml
-[[dependencies.${mod_id}]]
-modId="minecraft"
-type="required"
-versionRange="${minecraft_version_range}"
-ordering="NONE"
-side="CLIENT"
-```
-  </Tab>
-</Tabs>
-
-There is no server entrypoint, no network packet and no server-side mixin in
-the project.
+The Fabric metadata marks the mod environment as client-only and registers a client entrypoint. There is no server entrypoint, server mixin or custom network packet.
 
 ## What the server receives
 
-The mod does not send packets of its own. It calls the same vanilla entry
-points a player would call:
+InputBooster calls vanilla client methods. It does not send packets of its own.
 
-| Action | Vanilla call | Server sees |
+| Action | Client call | Server receives |
 | --- | --- | --- |
-| Attack an entity | `gameMode.attack(player, target)` | An ordinary attack packet |
-| Use item | `gameMode.useItem(player, InteractionHand.MAIN_HAND)` | An ordinary use packet |
-| Jump | `player.jumpFromGround()` | The usual movement state |
-| Sprint | `player.setSprinting(true)` | The usual movement state |
+| Attack entity | <code>gameMode.attack(player, target)</code> | The normal vanilla attack packet |
+| Use item | <code>gameMode.useItem(player, InteractionHand.MAIN_HAND)</code> | The normal vanilla use packet |
+| Jump | <code>player.jumpFromGround()</code> | Normal movement state |
+| Sprint | <code>player.setSprinting(true)</code> | Normal movement state |
 
-<Callout variant="info" title="The server cannot tell">
-The server sees the same packets a vanilla client sends. It cannot distinguish
-a recovered tap from a tap that happened to land inside a tick. That is the
-design constraint, not an accident.
-</Callout>
+The server receives ordinary client actions. InputBooster does not bypass server-side reach, cooldown or anticheat validation.
 
-## What the mod does not do
+## What it does not do
 
-- It does not extend reach. The drainer only attacks a target that is still
-  alive and within vanilla melee range — squared distance 36, which is the
-  6-block reach vanilla uses.
+- It does not extend reach. The drainer rechecks that the target is alive and within vanilla melee reach: three blocks, or squared distance 9.
 - It does not change hit registration or attack cooldown.
-- It does not generate input. Every action starts from a physical key or button
-  press that the mod observed.
-- It does not cancel another mod's key events or remap another mod's bindings.
-- It does not play the game for you. There is no auto-attack loop, no auto-
-  mine and no aim assist.
+- It does not generate input without a physical key or button edge.
+- It does not replace vanilla keyboard or mouse handlers.
+- It does not provide auto-attack, auto-mine or aim assist.
+- It does not provide a NeoForge build.
 
-## Why there is no server component
-
-A server-side component would have to either:
-
-1. Trust the client, which changes nothing about how the client works.
-2. Validate actions, which is the server's job already for reach and
-   cooldown.
-
-The problem the mod solves is entirely client-side: the game reads input once
-per tick, so a tap that starts and ends inside one tick window is never seen.
-No server can fix that, because the action never leaves the client.
-
-<Callout variant="note" title="Server-side anticheat considerations">
-Any client mod changes what your client sends. Some servers and anticheat
-systems have their own rules about modified clients, and the InputBooster
-project does not make any claim about which servers permit it. That decision
-belongs to the server operator and to you.
+<Callout variant="note" title="Server rules still apply">
+Individual multiplayer servers and anticheat systems set their own rules for modified clients. InputBooster does not claim that every server permits it.
 </Callout>
-
-## Multiplayer and other players
-
-Other players see the same thing they would see from a vanilla client: your
-attacks land, your movement changes, your items get used. Nothing about the
-mod's internal state — poll rate, queue depth, engine mode — is transmitted.
-
-The replay recorder is a local testing tool. Recordings live in memory only,
-are never written to disk and are never sent anywhere.
 
 ## Related pages
 
-- [Requirements](/docs/getting-started/requirements) — what the mod needs on
-  your machine.
-- [Installation](/docs/getting-started/installation) — putting the jar in
-  place.
-- [Limitations](/docs/reference/limitations) — the full list of what the
-  current build does not do.
+- [Requirements](/docs/getting-started/requirements) — supported Java and Fabric versions.
+- [Installation](/docs/getting-started/installation) — matching jar selection.
+- [Limitations](/docs/reference/limitations) — known gaps.

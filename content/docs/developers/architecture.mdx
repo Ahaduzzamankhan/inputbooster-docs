@@ -1,199 +1,82 @@
 ---
 title: "Architecture"
-description: "How the InputBooster source tree is organised, from the loader entrypoints down to the drainer."
+description: "The current Fabric project layout and the path from physical input to vanilla client actions."
 order: 1
 group: "Internals"
 ---
 
 <Lead>
-The mod is a loader-neutral core with two thin platform entrypoints and one
-version-compat shim per Minecraft version. Everything else is shared.
+The repository is not a single loader-neutral project. It contains separate Fabric Gradle projects for the supported Minecraft lines, with the 26.2/26.3 implementation in <code>fabric/</code>.
 </Lead>
 
-## The shape of the tree
+## Project layout
 
-<FileTree
-  title="Source layout"
-  items={[
-    "src/main/java/dev/inputbooster/InputBoosterMod.java",
-    "src/main/java/dev/inputbooster/engine/InputEngine.java",
-    "src/main/java/dev/inputbooster/engine/KeyStateManager.java",
-    "src/main/java/dev/inputbooster/engine/InputEventDispatcher.java",
-    "src/main/java/dev/inputbooster/engine/CompatibilityManager.java",
-    "src/main/java/dev/inputbooster/engine/DiagnosticsManager.java",
-    "src/main/java/dev/inputbooster/engine/KeyBindingProcessor.java",
-    "src/main/java/dev/inputbooster/engine/KeyboardProcessor.java",
-    "src/main/java/dev/inputbooster/engine/MouseProcessor.java",
-    "src/main/java/dev/inputbooster/engine/ConfigurationManager.java",
-    "src/main/java/dev/inputbooster/input/KeyboardRouter.java",
-    "src/main/java/dev/inputbooster/input/KeyBindingSet.java",
-    "src/main/java/dev/inputbooster/input/RawKeyState.java",
-    "src/main/java/dev/inputbooster/InputAction.java",
-    "src/main/java/dev/inputbooster/InputActionQueue.java",
-    "src/main/java/dev/inputbooster/InputDrainer.java",
-    "src/main/java/dev/inputbooster/InputPollingThread.java",
-    "src/main/java/dev/inputbooster/InputBoosterConfig.java",
-    "src/main/java/dev/inputbooster/ComboKeyPresets.java",
-    "src/main/java/dev/inputbooster/KeySnapshot.java",
-    "src/main/java/dev/inputbooster/McCompat.java",
-    "src/main/java/dev/inputbooster/access/MixinAccess.java",
-    "src/main/java/dev/inputbooster/mixin/GameTickMixin.java",
-    "src/main/java/dev/inputbooster/screen/InputBoosterScreen.java",
-    "src/main/java/dev/inputbooster/feature/CpsLimiter.java",
-    "src/neoforge/java/dev/inputbooster/platform/InputBoosterNeoForge.java",
-    "src/compat/mc26_2/java/dev/inputbooster/compat/McVersion.java",
-    "src/compat/mc26_3/java/dev/inputbooster/compat/McVersion.java",
-    "fabric/src/main/java/dev/inputbooster/platform/InputBoosterFabric.java",
-  ]}
-/>
-
-## The layers
-
-<Mermaid
-  chart={`flowchart TB
-    P[InputPollingThread] --> E[InputEngine]
-    K[KeyboardHandlerMixin] --> KP[KeyboardProcessor] --> E
-    M[MouseHandlerMixin] --> MP[MouseProcessor] --> E
-    E --> D[InputEventDispatcher] --> Q[InputActionQueue]
-    Q --> DR[InputDrainer] --> V[Vanilla client calls]
-    E --> C[CompatibilityManager]
-    S[ScreenTrackingMixin] --> R[KeyboardRouter] --> DR
-    CF[InputBoosterConfig] -.reads.-> E
-    CF -.reads.-> DR
-    CF -.reads.-> F[feature managers]`}
-  caption="The core path. The poller and the event mixins are the two sources; the drainer is the only place that touches the player."
-/>
-
-## The layers in detail
-
-### Platform entrypoints
-
-Two files, each a few dozen lines:
-
-| File | Loader | What it does |
+| Directory | Target | Role |
 | --- | --- | --- |
-| `InputBoosterNeoForge.java` | NeoForge | Calls `bootstrap()`, registers the key mappings, forwards the client tick |
-| `InputBoosterFabric.java` | Fabric | The same, through the Fabric client entrypoint |
+| <code>fabric/</code> | 26.2 and 26.3 | Main 4.1.2 implementation, with per-version compatibility sources |
+| <code>fabric-26.1/</code> | 26.1 | Separate 4.1.2 Fabric project |
+| <code>fabric-26.1.2/</code> | 26.1.2 | Separate 4.1.2 Fabric project |
+| <code>fabric-1.21.1/</code> | 1.21.1 | Separate 3.1.5 legacy project |
+| <code>fabric-1.21.4/</code> | 1.21.4 | Separate 3.1.5 legacy project |
+| <code>fabric-1.21.11/</code> | 1.21.11 | Separate 3.1.5 legacy project |
 
-Neither contains input logic. The core is loader-neutral:
+The current branch is Fabric-only. The NeoForge project, metadata, entrypoint and loader abstractions that existed only for NeoForge have been removed.
 
-```java
-public static KeyMapping[] createKeyMappings() { ... }
-public static void bootstrap() { ... }
-public static void initialize() { ... }
-public static void onClientTick() { ... }
-public static void shutdown() { ... }
-```
+The 1.21.x directories are independent older project trees. Do not assume a change in <code>fabric/</code> automatically changes those artifacts; the release matrix builds and tests each directory separately.
 
-<Callout variant="note" title="Why the key mappings are created in bootstrap">
-On NeoForge the client-setup callback runs *after* the key-mapping
-registration event, so a registration handler only ever saw `null` and the
-bindings were silently dropped from the controls screen. The mappings are
-therefore created during mod construction, before the platform registers them.
-</Callout>
+## Main 26.2/26.3 packages
 
-### The engine package
+The main implementation lives under <code>fabric/src/main/java/dev/inputbooster</code>.
 
-`dev.inputbooster.engine` is the input core:
-
-| Class | Responsibility |
+| Area | Responsibility |
 | --- | --- |
-| `InputEngine` | The state machine and the mode switch |
-| `KeyStateManager` | The authoritative held/released state per slot |
-| `KeyBindingProcessor` | Maps key codes to action slots |
-| `KeyboardProcessor` | Turns a key event into an engine state change |
-| `MouseProcessor` | Turns a button or scroll event into an engine state change |
-| `InputEventDispatcher` | The single exit point that queues an action |
-| `CompatibilityManager` | Detects input mods and resolves the engine mode |
-| `DiagnosticsManager` | The counters the overlay and settings screen read |
-| `ConfigurationManager` | A thin façade over the config accessors |
+| <code>engine</code> | Engine modes, compatibility resolution, diagnostics and configuration access |
+| <code>input</code> | Physical state, keyboard/mouse processors, routing and event dispatch |
+| <code>feature</code> | CPS limiter, movement helpers, replay, profiles, click feedback and overlay |
+| <code>command</code> | Client-side <code>/inputbooster</code> command |
+| <code>screen</code> | Vanilla fallback settings screen |
+| <code>compat/sodium</code> | Optional Sodium Config API entrypoint and pages |
+| <code>compat/modmenu</code> | Optional Mod Menu entrypoint |
+| <code>mixin</code> | Client observers, tick drain and options/HUD hooks |
+| <code>access</code> | Duck/accessor interfaces used by mixins |
 
-### The input package
+## Input path
 
-`dev.inputbooster.input` holds the three pieces that answer "who owns the
-keyboard right now":
+~~~text
+GLFW key state ---------------------+
+                                    |
+KeyboardHandlerMixin ---------------+--> InputEngine
+MouseHandlerMixin ------------------+        |
+                                             v
+                                      bounded action queue
+                                             |
+                                   GameTickMixin at tick HEAD
+                                             |
+                                         InputDrainer
+                                             |
+                                  guarded vanilla client calls
+~~~
 
-| Class | Responsibility |
-| --- | --- |
-| `KeyboardRouter` | Tracks whether a screen is open |
-| `KeyBindingSet` | The twelve bound key codes, published per tick |
-| `RawKeyState` | A handle to the window for raw platform key state |
+The polling thread observes raw platform key state. Keyboard and mouse mixins observe events without cancelling them. The engine merges state edges and queues actions; the game-thread drainer performs the action and suppresses a duplicate vanilla attack or use only for the tick it handled.
 
-### The feature package
+## Engine and compatibility
 
-`dev.inputbooster.feature` holds one class per feature. Every one of them is
-ticked from `InputBoosterMod.onClientTick()` and gated by a config flag and
-by the module manager. See [feature managers](/docs/developers/feature-managers).
+The engine supports automatic, event and poll modes. The compatibility manager queries Fabric Loader by mod id for four known input-routing mods: Controlify, Midnight Controls, Controllable and Zoomify. Sodium and Iris are rendering mods and are not in that list.
 
-### The mixin package
+If the event hooks are unavailable, or automatic compatibility fallback is triggered, the engine uses polling. The vanilla handlers remain in place.
 
-Ten mixins, all client side. Two observe input, one drains the queue, the rest
-attach the UI. See the [mixin inventory](/docs/reference/mixins).
+## Configuration and optional UI
 
-### The version shim
+<code>InputBoosterConfig</code> owns the properties file and the defaults. The vanilla options screen is always the fallback route. On 26.x, the optional Sodium Config API registers four pages; Mod Menu can open the vanilla screen.
 
-`dev.inputbooster.compat.McVersion` exists once per Minecraft version, in
-`src/compat/mc26_2` and `src/compat/mc26_3`. The build includes exactly one of
-them.
+The profile manager and per-server profile loader remain in the feature package, but the current player-facing settings screens do not expose profile save/load/delete controls.
 
-It hides the differences between 26.2 and 26.3 that the mod actually touches:
+## Version-specific code
 
-| Difference | Shim method |
-| --- | --- |
-| The swing call changed shape | `McVersion.swingArm(player)` |
-| `InputConstants.isKeyDown` takes a window handle in 26.2 but not in 26.3 | `McVersion.isKeyDown(key)` |
-| Sneak and jump state access | `McCompat.setSneaking`, `McCompat.isInWater`, `McCompat.isClimbing` |
-
-<Callout variant="info" title="The shim is a boundary, not a helper">
-Everything version-specific goes through the shim. That is why a 26.2 and a
-26.3 jar share one core source tree and one engine.
-</Callout>
-
-## Threading model
-
-| Thread | What it touches |
-| --- | --- |
-| Game thread | Everything Minecraft, the drainer, the tick handlers |
-| Polling thread | Raw key state and the published binding set only |
-
-The polling thread never touches a Minecraft object. The window handle and the
-binding set are captured on the game thread and published as volatile fields.
-
-<Callout variant="warning" title="The poller runs at default priority on purpose">
-An aggressively prioritised poller starves the render thread on low-end CPUs,
-which is exactly the stutter the mod exists to prevent.
-</Callout>
-
-## The lifecycle
-
-<Steps>
-  <Step title="Construction">
-    `bootstrap()` creates the key mappings. Nothing else happens yet.
-  </Step>
-  <Step title="First tick">
-    `onClientTick()` calls `initialize()`, which verifies the mixin targets,
-    loads the config, creates every manager, detects input mods, starts the
-    poller and logs `Ready!`.
-  </Step>
-  <Step title="Running">
-    Each tick: publish bindings, update the poll rate, run the combo keys,
-    tick the feature managers, tick the drainer via the mixin.
-  </Step>
-  <Step title="Shutdown">
-    The `close` mixin calls `shutdown()`, which stops the poller and waits for
-    it, clears the queue, saves the config and releases the keyboard.
-  </Step>
-</Steps>
-
-<Callout variant="danger" title="Initialisation never retries">
-If `initialize()` throws, the mod sets `initFailed`, disables itself and logs
-`Fatal init error!`. It does not retry on the next tick: an earlier version
-logged the same stack trace every tick and could start a second polling thread
-per attempt.
-</Callout>
+The <code>fabric/</code> project keeps 26.2 and 26.3 differences in its compatibility source sets. The other Minecraft lines are separate Gradle projects with their own version-specific source and metadata. See [building and testing](/docs/developers/building-and-testing) for the build matrix.
 
 ## Related pages
 
-- [Input pipeline](/docs/developers/input-pipeline) — the path of one action.
-- [Engine modes](/docs/developers/engine-modes) — how the source is chosen.
-- [Mixin inventory](/docs/reference/mixins) — every hook and its contract.
+- [Input pipeline](/docs/developers/input-pipeline) — action capture and drain.
+- [Engine modes](/docs/developers/engine-modes) — source selection and fallback.
+- [Settings UI](/docs/developers/settings-ui) — Sodium and vanilla entrypoints.

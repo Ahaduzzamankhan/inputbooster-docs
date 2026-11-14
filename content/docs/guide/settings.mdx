@@ -1,173 +1,70 @@
 ---
-title: "The settings screen"
-description: "Every tab of the InputBooster settings screen, what each control writes, and which controls exist but do nothing yet."
-order: 1
-group: "Settings screen"
+title: "Settings"
+description: "Where the current settings live, what each page controls, and which stored options are not implemented."
+order: 2
+group: "Visibility"
 ---
 
 <Lead>
-The settings screen is the only interface the mod has. It is organised as
-seven sections in a left rail. This page walks through all of them and names
-the config key each control writes.
+The current interface is not the old movable seven-tab window. On 26.x, compatible Sodium builds expose four native configuration pages. The vanilla fallback screen is also available from Options and Mod Menu.
 </Lead>
 
-## Opening it
+## Open the settings
 
-Two routes:
+- **Options:** open Minecraft Options and select the InputBooster button.
+- **Mod Menu:** use the InputBooster configuration entry when Mod Menu is installed.
+- **Sodium on 26.x:** open Sodium's Video Settings and select InputBooster in the sidebar.
 
-- **Options → InputBooster...** — the button in the top right of the vanilla
-  options screen. This is the reliable one.
-- The key-binding screen, where the two InputBooster bindings live.
+The 1.21.x artifacts do not declare the Sodium Config API entrypoint. Use the vanilla options screen or Mod Menu for those builds, even when Sodium is installed.
 
-<Callout variant="note" title="The README says one thing, the source does another">
-The README states that the key-binding screen has an InputBooster category. In
-the current source, `createKeyMappings()` registers both mappings with
-`KeyMapping.Category.MISC`, so they appear under Minecraft's Misc category.
-This site documents the source behaviour.
-</Callout>
+## Sodium pages on 26.x
 
-## The window
-
-| Property | Value |
+| Page | Main controls |
 | --- | --- |
-| Minimum size | 380 x 260 |
-| Resizable | Yes, by the bottom-right grip |
-| Movable | Yes, by the header |
-| Scrollable | Yes, the content area only |
-| Geometry persistence | For the session only, never written to disk |
-| Apply behaviour | Immediate — every control writes as you change it |
-| Persist behaviour | The Save &amp; Close button writes to disk |
+| General | Automatic/manual polling, engine mode, compatibility fallback |
+| Features | Sprint fix, auto sprint, W-tap, anti-idle, auto strafe, combo keys, CPS limiter, maximum CPS, limiter mode, adaptive burst |
+| Overlay | F3 information, keystroke toggle, action-bar messages, display mode, position, opacity, scale, colour, test rectangle and diagnostics |
+| Advanced | Keyboard repeat guard, scroll debounce, click deduplication, experimental keyboard handler, safe mode, event logging, key warnings, debug mode, FPS interval, replay, per-server profiles and click sounds |
 
-The tab rail and the footer stay fixed. Only the section content scrolls. Rows
-that do not fit completely inside the content viewport are hidden rather than
-clipped or drawn over the header and footer. This is the fix that landed in
-4.1.2-alpha: on a short window, controls below the fold used to be unreachable,
-including Save &amp; Close.
+Sodium uses its Config API widgets and writes changes through the same configuration store as the vanilla screen.
 
-## Overview
+## Vanilla fallback screen
 
-Live state. Nothing here is a setting.
+The fallback screen is built from vanilla controls. It has six scrollable sections:
 
-| Row | Source |
-| --- | --- |
-| Engine | `InputEngine.mode()` — auto, event or poll |
-| Poll thread | Whether the polling thread is alive |
-| Rate | `currentPollHz`, or 1000 while burst mode is active |
-| Queue | `InputActionQueue.size()` against a capacity of 128 |
-| Overlay | Whether the overlay is enabled and where it is anchored |
-| Keys / Mouse | Event counters from the diagnostics manager |
-| Detected input mods | The result of the class-path scan |
+1. **Polling** — automatic polling, manual frequency and FPS check interval.
+2. **Input engine** — engine mode, compatibility fallback, repeat guard, mouse debounce and experimental keyboard handler.
+3. **Movement assistance** — sprint fix, auto sprint, W-tap, anti-idle, auto strafe and combo keys.
+4. **Click limiter** — enable/disable, maximum CPS, limiter mode and adaptive burst.
+5. **Overlay** — visibility, display mode, position, scale, opacity, colour, test rectangle, keystrokes, action-bar messages and diagnostic lines.
+6. **Safety and feedback** — safe mode, event log, conflict warnings, debug mode, replay, per-server profiles and click sounds.
 
-The Overview tab also lists the active features, the maximum CPS, and a
-60-second CPS graph from the session statistics.
+There is no movable/resizable custom window, tab rail or Save & Close button in this version. A change is saved as its control is changed.
 
-## Keyboard
+## Overlay positions and colour
 
-| Control | Config key | Notes |
-| --- | --- | --- |
-| Repeat guard | `keyboard_repeat_guard` | A held key counts as one press, not a stream |
-| Combo keys (Ctrl+1-5) | `combo_keys` | Applies the manual poll rate presets |
-| Resync held keys | — | Clears the held-key state in the engine |
-| Binding report | — | Says whether all twelve bindings resolved |
+The overlay supports five positions: top-left, top-right, bottom-left, bottom-right and top-center. The colour control offers White, Cyan, Green, Yellow, Orange, Red, Magenta and Grey. The configuration file can store a custom ARGB integer, even though the UI presents presets.
 
-<Callout variant="warning" title="The repeat guard is currently inert">
-`keyboard_repeat_guard` is persisted, validated and toggled, but the engine
-ignores `KeyEvent` repeat actions unconditionally — a repeat is never turned
-into an action regardless of the setting. The behaviour you get is the same
-either way. See [limitations](/docs/reference/limitations).
-</Callout>
+The test rectangle is a diagnostic aid for confirming the overlay's position and visibility. It is not a gameplay indicator.
 
-## Mouse
+## Settings that are not fully implemented
 
-| Control | Config key | Range |
-| --- | --- | --- |
-| CPS limiter | `cps_limiter` | on / off |
-| Max CPS | `max_cps` | 1 to 20 |
-| Click dedupe | `mouse_click_dedupe_ms` | 0 to 100 ms |
-| Scroll debounce | `mouse_scroll_debounce_ms` | 0 to 200 ms |
-| Click sounds | `click_sounds` | on / off |
-| Click sound pitch | `click_sound_pitch` | 0.5 to 2.0 |
-| Click sound volume | `click_sound_volume` | 0.0 to 1.0 |
-| CPS mode | `cps_mode` | Read from the config |
+The UI still exposes a few persisted settings that have no runtime effect. In the current source, these are:
 
-The CPS mode is displayed but not edited here. It is a string in the config and
-is set by hand or by a profile.
+- <code>show_keystrokes</code> — no keystroke renderer is present.
+- <code>click_sound_volume</code> — the click sound manager uses pitch but does not apply this volume setting.
+- <code>fps_check_interval</code> — stored and displayed, but not read by the adaptive poll-rate logic.
+- <code>keyboard_repeat_guard</code> — GLFW repeat events are ignored unconditionally; this setting does not gate that behavior.
+- <code>debug_mode</code> — persisted but does not currently gate debug logging.
 
-## Overlay
+See [key reference](/docs/configuration/keys) and [limitations](/docs/reference/limitations) for details.
 
-| Control | Config key | Range |
-| --- | --- | --- |
-| Overlay enabled | `show_f3_info` | on / off |
-| Keystrokes overlay | `show_keystrokes` | on / off |
-| Engine line | `overlay_show_engine` | on / off |
-| Event counters | `overlay_show_events` | on / off |
-| Dispatch timing | `overlay_show_overhead` | on / off |
-| Position | `overlay_position` | 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right |
-| Scale | `overlay_scale` | 0.5 to 3.0 |
-| Opacity | `overlay_opacity` | 0.0 to 1.0 |
-| Mode | `overlay_mode` | 0 F3 only, 1 always |
+## Profiles
 
-`show_f3_info` is the master switch. When it is off, none of the other overlay
-settings matter.
+The profile manager and per-server profile loader still exist, but the current settings screens do not expose Save, Load or Delete controls. Profiles and server bindings must be prepared in their JSON/properties files; see [Profiles](/docs/guide/profiles).
 
-<Callout variant="warning" title="The keystrokes overlay is not implemented">
-`show_keystrokes` is stored and validated, but there is no renderer for it in
-4.1.2-alpha. The toggle changes a config value and nothing is drawn. See
-[the overlay page](/docs/guide/overlay).
-</Callout>
+## Related pages
 
-## Performance
-
-| Control | Config key | Range |
-| --- | --- | --- |
-| Burst mode | `burst_mode` | on / off |
-| Poll rate | `poll_rate_hz` | 60 to 1000 Hz |
-| FPS check | `fps_check_interval` | 1 to 100 ticks |
-| Auto / manual | `poll_rate_auto` | on / off |
-| Reset counters | — | Clears the session counters |
-| Force sync | — | Re-synchronises the held-key state |
-
-<Callout variant="warning" title="The FPS check interval is currently inert">
-`fps_check_interval` is persisted and validated, but the adaptive poll rate is
-recomputed on every client tick regardless of the value. The slider changes a
-number that nothing reads yet.
-</Callout>
-
-## Compatibility
-
-| Control | Config key | Notes |
-| --- | --- | --- |
-| Fallback with input mods | `compat_fallback` | Poll instead of competing for events |
-| Engine mode | `engine_mode` | 0 automatic, 1 event driven, 2 polled |
-| Custom Keyboard (ALPHA) | `custom_keyboard_handler` | Opens a warning screen when enabled |
-| Write status to log | — | Writes the compatibility status into the event log |
-
-The tab also lists the detected input mods and whether the keyboard and mouse
-event hooks are live.
-
-## Advanced
-
-| Control | Config key | Notes |
-| --- | --- | --- |
-| Safe mode | `safe_mode` | Disables a module that keeps failing |
-| Event log | `event_log` | Master switch for the in-memory log |
-| Debug mode | `debug_mode` | Verbose diagnostics |
-| Key conflict warning | `key_conflict_warn` | Warns about clashing binds |
-| Per-server profiles | `per_server_profiles` | Switch profile when the server changes |
-| Manage profiles | — | Opens the separate profiles screen |
-| Reset latency peak | — | Clears the peak drain latency |
-
-<Callout variant="warning" title="Debug mode has no verbose output yet">
-`debug_mode` is read by an accessor and displayed, but the log statements it
-would gate are not wired to it. Turning it on does not currently make the log
-more verbose.
-</Callout>
-
-## Saving
-
-Changes apply the moment you make them — the runtime reads the config
-continuously. The Save &amp; Close button writes the file.
-
-Writes are atomic: the mod creates a temporary file in the same folder, fills
-it, and moves it over the real file. A crash during the save cannot leave a
-truncated config. See [the config file](/docs/configuration/config-file).
+- [First session](/docs/getting-started/first-session) — a quick verification checklist.
+- [The overlay](/docs/guide/overlay) — HUD behavior and commands.
+- [Configuration file](/docs/configuration/config-file) — persisted settings.

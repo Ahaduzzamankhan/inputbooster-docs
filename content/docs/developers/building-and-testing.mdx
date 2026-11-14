@@ -1,226 +1,95 @@
 ---
 title: "Building and testing"
-description: "Build all three supported jars from source, run the test suite, and understand what the CI pipeline does."
+description: "Build and test the seven Fabric targets, understand the Java toolchains, and see what current CI does not test."
 order: 6
 group: "Screens"
 ---
 
 <Lead>
-Java 25 and a network connection for the Gradle toolchain are required. The
-repository builds a NeoForge jar and two Fabric jars from one core source
-tree.
+The repository currently contains seven independent Fabric Gradle targets. Gradle itself must run on Java 25; the 1.21.x projects also use a Java 21 compilation toolchain.
 </Lead>
 
-## Requirements
+## Project matrix
 
-| Requirement | Value |
-| --- | --- |
-| Java | 25, set through the Gradle toolchain |
-| Network | Required for the first build to fetch the toolchain and dependencies |
-| Gradle | Provided by the wrapper — do not install it separately |
-
-The build sets a Java toolchain explicitly:
-
-```groovy
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
-    }
-}
-```
-
-## The two Gradle builds
-
-The repository has two Gradle projects.
-
-| Project | Directory | Loader | Minecraft |
+| Project directory | Minecraft | Mod version | Java toolchain |
 | --- | --- | --- | --- |
-| Root | `.` | NeoForge | 26.2 |
-| Fabric | `fabric/` | Fabric | 26.3 by default |
+| <code>fabric/</code> | 26.2 and 26.3 | 4.1.2 | 25 |
+| <code>fabric-26.1/</code> | 26.1 | 4.1.2 | 25 |
+| <code>fabric-26.1.2/</code> | 26.1.2 | 4.1.2 | 25 |
+| <code>fabric-1.21.1/</code> | 1.21.1 | 3.1.5 | 21 |
+| <code>fabric-1.21.4/</code> | 1.21.4 | 3.1.5 | 21 |
+| <code>fabric-1.21.11/</code> | 1.21.11 | 3.1.5 | 21 |
 
-Both compile the same core sources. The root project adds
-`src/neoforge/java` and one compat source set; the Fabric project adds
-`fabric/src/main/java` and its own compat source set.
+The <code>fabric/</code> project builds both 26.2 and 26.3 through its Minecraft/API Gradle properties. The release workflow also builds the other five project directories, for seven artifacts total.
 
-```groovy
-sourceSets {
-    main {
-        java {
-            srcDirs = ['src/main/java', 'src/neoforge/java', 'src/compat/mc26_2/java']
-        }
-    }
-}
-```
+## Java runtime versus toolchain
 
-## Building
+Use a Java 25 runtime to launch Gradle for every project. Fabric Loom 1.18.2 requires at least JVM 25 to run. The 1.21.x source is compiled with a Java 21 toolchain, which the CI workflow installs separately and exposes to Gradle.
 
-### NeoForge, Minecraft 26.2
+Do not launch Gradle itself with Java 21. A previous CI attempt did so and failed before project configuration because Loom requires JVM 25; the workflow was corrected to keep the Gradle runtime on Java 25 while selecting Java 21 for compilation.
 
-<Command command="./gradlew build" block label="Root project" />
+## Build commands
 
-### Fabric, Minecraft 26.3
+From the repository root, run the command for the target project.
 
-<Command command="cd fabric && ./gradlew build" block label="Fabric project" />
+### Minecraft 26.3
 
-### Fabric, Minecraft 26.2
+~~~bash
+cd fabric
+./gradlew clean test build --no-daemon
+~~~
 
-<Command
-  command={'./gradlew build -Pminecraft_version=26.2 "-Pminecraft_version_range=>=26.2 <26.3" -Pfabric_version=0.161.0+26.2'}
-  block
-  label="Fabric 26.2 override"
-/>
+### Minecraft 26.2
 
-<Callout variant="info" title="Why the range has no brackets">
-Fabric Loader 0.19.5 mis-parses a bracket range when the Minecraft version has
-two components: `[26.3,26.4)` rejects 26.3 itself with `but only the wrong
-version is present: 26.3!`. The space-separated comparison form is parsed
-correctly.
+~~~bash
+cd fabric
+./gradlew clean test build --no-daemon \
+  -Pminecraft_version=26.2 \
+  "-Pminecraft_version_range=>=26.2 <26.3" \
+  -Pfabric_version=0.161.0+26.2
+~~~
+
+### Minecraft 26.1 and 26.1.2
+
+~~~bash
+cd fabric-26.1
+./gradlew clean test build --no-daemon
+
+cd ../fabric-26.1.2
+./gradlew clean test build --no-daemon
+~~~
+
+### Minecraft 1.21.x
+
+~~~bash
+cd fabric-1.21.1
+./gradlew clean test build --no-daemon
+
+cd ../fabric-1.21.4
+./gradlew clean test build --no-daemon
+
+cd ../fabric-1.21.11
+./gradlew clean test build --no-daemon
+~~~
+
+The 1.21.x Gradle builds still run on Java 25; Gradle selects Java 21 for the Java compilation toolchain. On Windows, use <code>gradlew.bat</code>.
+
+## Tests and artifacts
+
+Each matrix target runs <code>clean test build</code>. The 26.2/26.3 project also contains the Minecraft-version signature checks for its mixins and the metadata range checks. The release workflow validates the expected artifacts before publishing.
+
+Build outputs are written under each project's <code>build/libs</code> directory. The release job attaches the seven version-specific jars to the release tag <code>v4.1.2-beta3</code>.
+
+## Current GitHub Actions workflow
+
+Only <code>.github/workflows/gradle.yml</code> is present in the current source branch. It runs the seven-project build/test matrix and publishes the release artifacts. The earlier standalone <code>test.yml</code> and <code>client-smoke.yml</code> workflows are no longer present.
+
+<Callout variant="warning" title="CI does not currently launch Minecraft">
+The current workflow builds and runs tests but has no headless client startup job. A successful CI build therefore does not prove that the game launches on every graphics stack. The latest recorded client-smoke run failed in several matrix combinations; see [limitations](/docs/reference/limitations).
 </Callout>
-
-On Windows, use `gradlew.bat` instead of `./gradlew`.
-
-## Where the jars land
-
-| Build | Output |
-| --- | --- |
-| NeoForge | `build/libs/inputbooster-<version>-nf-mc262.jar` |
-| Fabric | `fabric/build/libs/inputbooster-<version>-fabric-mc263.jar` |
-
-The version string comes from `gradle.properties` and carries the loader
-flavour, for example `4.1.2-alpha-fabric` or `4.1.2-alpha-nf-mc262`.
-
-## Running the tests
-
-<Command command="cd fabric && ./gradlew test" block label="The test suite" />
-
-There are 16 test classes in `fabric/src/test/java/dev/inputbooster`:
-
-| Test | What it covers |
-| --- | --- |
-| `AdaptivePollRateTest` | The auto poll rate targets, ramp and instability clamp |
-| `ComboKeyPresetsTest` | The Ctrl+1-5 preset values and the latch |
-| `CpsLimiterTest` | The token bucket |
-| `CpsLimiterBurstTest` | Burst behaviour against the bucket |
-| `CpsLimiterModesTest` | `FIXED`, `HUMANIZED`, `WEAPON_AWARE` and `COOLDOWN` |
-| `EngineConfigTest` | Engine mode resolution |
-| `FabricDependencyRangeTest` | The Fabric dependency range form |
-| `InputActionQueueTest` | The queue bound and the counter |
-| `InputBoosterConfigTest` | Config round trips and validation |
-| `InputEngineTest` | Edge detection across both sources |
-| `LatencyProfilerTest` | The rolling window and the peak |
-| `MixinDeclarationTest` | The mixin declaration rules |
-| `MixinTargetSignatureTest` | Every hook signature against the real Minecraft jar |
-| `ProfileAndReplayTest` | Profile capture, apply and replay behaviour |
-| `SessionStatsTest` | The CPS buckets and the session counters |
-| `SuppressionAndOriginTest` | The tick-scoped suppression tokens and the replay origin |
-
-The changelog for 4.1.0-alpha records 81 tests in total.
-
-<Callout variant="info" title="The tests need a throwaway config directory">
-The config path comes from the `inputbooster.configDir` system property, which
-the tests set to a temporary folder. Nothing they write touches your real
-`.minecraft/config`.
-</Callout>
-
-## The two tests that guard the mod
-
-`MixinDeclarationTest` and `MixinTargetSignatureTest` exist because of two
-release-stopping crashes.
-
-**`MixinDeclarationTest`** fails the build if a registered mixin declares a
-non-private static method. Mixin only permits private static helpers inside a
-mixin, and a public one aborts the transformation of the whole target class.
-That bug shipped in 4.0.2-stable and crashed every client before the main
-menu.
-
-**`MixinTargetSignatureTest`** checks every `@Inject`, `@Accessor` and
-`@Invoker` against the resolved Minecraft jar, for both the 26.2 and 26.3
-builds. It exists because 4.1.0-alpha crashed on every loader: the keyboard
-mixin was written against the 1.21 signature `keyPress(long, int, int, int,
-int)` while 26.2 and 26.3 use `keyPress(long, int, KeyEvent)`.
-
-<Callout variant="warning" title="`require = 0` does not protect against this">
-`require = 0` tolerates a missing target. It does not tolerate a handler whose
-parameters disagree with the target — that is a fatal injection error. The
-signature test is the only thing standing between a mapping change and a
-crash on startup.
-</Callout>
-
-## CI
-
-The `gradle.yml` workflow runs on pushes to `main` and
-`fabric-26.2-26.3`, on `v*` tags, on pull requests targeting `main`, and
-through manual workflow dispatch.
-
-| Job | What it does |
-| --- | --- |
-| `build-neoforge` | Builds the NeoForge 26.2 jar on Temurin 25 |
-| `build-fabric` | Builds both Fabric jars from a matrix, then verifies the metadata |
-| `release` | Publishes a GitHub release with all three jars |
-
-The Fabric job verifies the dependency range form before it uploads anything:
-
-```bash
-grep -q '"minecraft": *">=' /tmp/fabric.mod.json \
-  || { echo "minecraft dependency must use the '>=x <y' form" >&2; exit 1; }
-```
-
-The release job refuses to publish unless all three jars are present, derives
-the tag from `mod_version` when there is no explicit tag, and marks a release
-as a prerelease when the version contains `alpha` or `beta`.
-
-### Fabric unit tests and build matrix
-
-The [`test.yml` workflow](https://github.com/Ahaduzzamankhan/InputBooster/blob/fabric-26.2-26.3/.github/workflows/test.yml)
-adds a dedicated Fabric test-and-build job. It runs on pushes to `main` and
-`fabric-26.2-26.3` when files under `fabric/` or `src/`, or the workflow
-itself, change. It can also be started manually from GitHub Actions.
-
-| Matrix target | Minecraft range | Fabric API |
-| --- | --- | --- |
-| Fabric 26.2 | `>=26.2 <26.3` | `0.161.0+26.2` |
-| Fabric 26.3 | `>=26.3 <26.4` | `0.161.0+26.3` |
-
-Each matrix job uses Temurin Java 25 and runs
-`./gradlew clean test build --no-daemon` from `fabric/`, passing the
-matching Minecraft version, dependency range and Fabric API version. JUnit
-reports are uploaded even when a test fails; the Fabric jar is uploaded only
-after a successful build. Both artifact types are retained for 14 days.
-
-### Headless client smoke test
-
-The [`client-smoke.yml` workflow](https://github.com/Ahaduzzamankhan/InputBooster/blob/fabric-26.2-26.3/.github/workflows/client-smoke.yml)
-uses the same two-version Fabric matrix and push/path filters, and also
-supports manual dispatch. It starts `runClient` under Xvfb with Mesa software
-rendering and a null audio backend, so CI does not need a physical display or
-audio device.
-
-The check waits up to 210 seconds for the client log marker
-`Sound engine started`, then verifies that the client remains running for
-another 10 seconds. It uploads the client console, game logs and crash reports
-for 14 days.
-
-<Callout variant="info" title="What the smoke test verifies">
-This is a client startup and short-lived liveness check. It confirms that the
-Fabric client reaches its startup marker and stays alive briefly; it does not
-simulate keyboard or mouse input, exercise gameplay, or replace manual
-in-game testing. The client still runs with a virtual display and software
-graphics renderer.
-</Callout>
-
-## Running the mod in a development client
-
-Both Gradle projects define a client run configuration:
-
-```bash
-./gradlew runClient
-```
-
-The NeoForge root project sets `neoforge.enabledGameTestNamespaces` to the mod
-id, so game tests in that namespace run in the development client.
 
 ## Related pages
 
-- [Architecture](/docs/developers/architecture) — the source layout.
-- [Mixin inventory](/docs/reference/mixins) — what the signature test checks.
-- [Versioning](/docs/releases/versioning) — how version numbers map to jars.
+- [Architecture](/docs/developers/architecture) — source projects and package boundaries.
+- [Mixin inventory](/docs/reference/mixins) — current registered mixins.
+- [Versioning](/docs/releases/versioning) — mod versions and jar names.

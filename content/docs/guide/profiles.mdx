@@ -1,143 +1,59 @@
 ---
 title: "Profiles"
-description: "Save a set of InputBooster settings, switch between them, and bind one to a server."
+description: "The profile files and per-server loading behavior that remain available in the current build."
 order: 6
 group: "Visibility"
 ---
 
 <Lead>
-A profile is a snapshot of 23 settings under a name. Up to five can exist at
-once, and one of them can be bound to a server so it loads automatically when
-you connect.
+The profile manager still stores snapshots of 23 settings, up to five profiles. The current settings screens do not expose profile management controls, so players who use profiles must edit the JSON and server-binding files manually.
 </Lead>
 
-## Opening the profile screen
+## Current UI limitation
 
-The Advanced tab of the settings screen has a **Manage profiles** button. It
-opens a separate screen with a **Save** button per profile, a **Load** button
-and a **Delete** button per profile, and a **Back** button.
+There is no in-game Save, Load or Delete profile screen in the current 4.1.2 UI, and there is no client command for those operations. <code>ProfileManager</code> retains the internal capture/apply/save/delete methods, while <code>PerServerProfileManager</code> can load a profile bound to the current server.
+
+To use per-server profiles, create the profile JSON and binding properties file while Minecraft is closed. The format is documented in [Profile format](/docs/configuration/profiles-format).
 
 ## What a profile captures
 
-A profile is a snapshot of the current configuration. It holds 23 fields:
+A profile contains 23 fields:
 
 | Group | Fields |
 | --- | --- |
-| Polling | `pollRateHz`, `pollRateAutoMode` |
-| Movement | `sprintFixEnabled`, `autoSprintEnabled`, `wTapAssistEnabled`, `antiIdleEnabled`, `autoStrafeEnabled` |
-| Combat | `cpsLimiterEnabled`, `maxCps`, `cpsMode` |
-| Overlay | `showF3Info`, `showKeystrokes`, `showActionBar` |
-| Diagnostics | `fpsCheckInterval`, `debugMode` |
-| Engine | `burstModeEnabled`, `comboKeysEnabled` |
-| Features | `replayEnabled`, `safeModeEnabled`, `eventLogEnabled`, `keyConflictWarn`, `perServerProfiles` |
+| Polling | <code>pollRateHz</code>, <code>pollRateAutoMode</code> |
+| Movement | <code>sprintFixEnabled</code>, <code>autoSprintEnabled</code>, <code>wTapAssistEnabled</code>, <code>antiIdleEnabled</code>, <code>autoStrafeEnabled</code> |
+| Combat | <code>cpsLimiterEnabled</code>, <code>maxCps</code>, <code>cpsMode</code> |
+| Overlay | <code>showF3Info</code>, <code>showKeystrokes</code>, <code>showActionBar</code> |
+| Diagnostics | <code>fpsCheckInterval</code>, <code>debugMode</code> |
+| Engine/features | <code>burstModeEnabled</code>, <code>comboKeysEnabled</code>, <code>replayEnabled</code>, <code>safeModeEnabled</code>, <code>eventLogEnabled</code>, <code>keyConflictWarn</code>, <code>perServerProfiles</code> |
 
-<Callout variant="info" title="What a profile does not capture">
-Overlay position, scale and opacity, the engine mode, the custom keyboard
-handler, the compatibility fallback, the click dedupe and scroll debounce
-windows, and the click sound settings are **not** in a profile. Applying a
-profile leaves those at whatever they were.
-</Callout>
+## Limits
 
-## Saving, loading and deleting
+- Maximum profiles: five.
+- A profile name is matched case-insensitively.
+- Missing or wrongly typed JSON fields use their defaults.
+- Invalid JSON is moved aside to <code>inputbooster_profiles.json.corrupt</code>; the client continues with no loaded profiles.
 
-- **Save** captures the current settings under a name. Saving over an existing
-  name overwrites that profile instead of creating a second one — the match is
-  case-insensitive.
-- **Load** applies the profile to the live configuration and writes the config
-  file. An action-bar message confirms it.
-- **Delete** removes a profile. If the deleted profile was the active one,
-  nothing is active afterwards.
+## Files
 
-## The limit
+<code>.minecraft/config/inputbooster_profiles.json</code> stores the profile array.
 
-The profile list holds a maximum of five profiles. Saving a sixth with a new
-name fails and the list stays at five.
+<code>.minecraft/config/inputbooster_server_profiles.properties</code> maps a normalised server identifier to a profile name:
 
-## Where profiles are stored
-
-Profiles live in a JSON array next to the config file:
-
-<FileTree
-  title="Profile files"
-  items={[
-    ".minecraft/config/inputbooster.properties",
-    ".minecraft/config/inputbooster_profiles.json",
-    ".minecraft/config/inputbooster_server_profiles.properties",
-  ]}
-/>
-
-The file is written atomically, like the main config. A profile file that is
-not valid JSON is moved aside to `inputbooster_profiles.json.corrupt` and the
-game starts with no profiles instead of failing to launch.
-
-## Per-server profiles
-
-With `per_server_profiles` enabled, the mod watches which server you are
-connected to and loads the profile bound to it.
-
-Detection runs every 20 ticks, roughly once a second, and uses reflection with
-a defensive fallback — the vanilla fields it looks up have changed across
-versions, so a failure degrades to a stable identifier instead of throwing on
-the client tick.
-
-The identifier is normalised so the same server always maps to the same
-profile:
-
-| Address | Normalised to |
-| --- | --- |
-| `Example.com` | `example.com` |
-| `example.com:25565` | `example.com` |
-| `tcp://EXAMPLE.COM` | `example.com` |
-| `example.com/somepath` | `example.com` |
-| — (singleplayer) | `singleplayer` |
-| — (main menu) | `title` |
-
-### Writing a binding
-
-<Callout variant="warning" title="There is no UI for this yet">
-`PerServerProfileManager.bind()` exists and writes the file correctly, but no
-button in the settings screen calls it. The binding file has to be edited by
-hand while the game is closed.
-</Callout>
-
-Create or edit `inputbooster_server_profiles.properties`:
-
-```properties
+~~~properties
 example.com=Competitive
 hypixel.net=Slow
 singleplayer=Casual
-```
+~~~
 
-The key is the normalised server identifier and the value is the profile name.
-The name must match a profile exactly as it appears in the profiles list,
-otherwise the lookup finds nothing and your settings simply do not change.
+Server detection runs every 20 ticks. Identifiers are normalised to lower case, without a scheme, path or default port 25565.
 
-<Callout variant="note" title="Normalise the key yourself">
-The manager normalises the identifier it detects, but it normalises the file
-key when it saves. When you edit the file by hand, write the normalised form:
-lower case, no scheme, no path, no `:25565`.
-</Callout>
+## Settings not captured
 
-## Switching profiles and the running engine
-
-Applying a profile changes the live configuration. Two settings have an
-immediate effect on the running poller:
-
-| Setting | Effect on apply |
-| --- | --- |
-| `pollRateHz`, `pollRateAutoMode` | The poller's rate is updated on the next tick |
-| `engineMode` | Not part of a profile — see the note below |
-
-<Callout variant="warning" title="Engine mode is not in a profile">
-`engine_mode` is not one of the 23 captured fields. If you switch profiles,
-the engine mode stays whatever it was.
-</Callout>
+Overlay placement, scale, opacity, colour and test rectangle; engine mode; custom keyboard handler; compatibility fallback; keyboard repeat guard; mouse debounce and click deduplication; click sound settings; and config schema version are outside the profile record. Applying a profile leaves those values unchanged.
 
 ## Related pages
 
-- [The configuration file](/docs/configuration/config-file) — the main
-  properties file.
-- [Profile file format](/docs/configuration/profiles-format) — the JSON schema,
-  field by field.
-- [Per-server profiles](/docs/configuration/profiles-format#per-server-bindings)
-  — the binding file format.
+- [Profile format](/docs/configuration/profiles-format) — JSON fields and binding syntax.
+- [Configuration file](/docs/configuration/config-file) — the main properties file.

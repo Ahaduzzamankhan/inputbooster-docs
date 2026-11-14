@@ -1,146 +1,66 @@
 ---
 title: "Versioning"
-description: "How InputBooster version numbers, jar names and the config schema version relate to each other."
+description: "How mod versions, Minecraft targets, release tags and the configuration schema relate."
 order: 3
 group: "Releases"
 ---
 
 <Lead>
-There are three different version numbers in this project: the mod version,
-the config schema version and the Minecraft version. They are unrelated and
-are easy to confuse.
+Do not treat the mod version, release tag, Minecraft version and config schema as the same number. The current release tag is <code>v4.1.2-beta3</code>; its 1.21.x artifacts retain mod version 3.1.5.
 </Lead>
 
-## The three versions
+## The version fields
 
-| Version | Example | Where it lives |
+| Field | Current value | Meaning |
 | --- | --- | --- |
-| The mod version | `4.1.2-alpha` | The jar name and `InputBoosterMod.MOD_VERSION` |
-| The config schema | `305` | `config_version` in the properties file |
-| The Minecraft version | `26.2`, `26.3` | The `mc262` / `mc263` suffix and the dependency ranges |
+| Release tag | <code>v4.1.2-beta3</code> | GitHub release identifier; marked as a prerelease |
+| Mod version on 26.x | <code>4.1.2</code> | Embedded in the 26.x jars and startup line |
+| Mod version on 1.21.x | <code>3.1.5</code> | Embedded in the separate legacy 1.21.x jars |
+| Config schema | <code>305</code> | Value written to <code>config_version</code> |
+| Minecraft target | Per artifact | Encoded in the jar suffix and Fabric metadata |
 
-<Callout variant="info" title="The schema version is not the mod version">
-`4.1.2-alpha` writes `config_version=305`. The two numbers are unrelated. The
-schema version only changes when the meaning of a config key changes.
-</Callout>
+## Current jar naming
 
-## The mod version scheme
+~~~text
+inputbooster-<mod-version>-mc<minecraft-without-dots>.jar
+~~~
 
-```text
-MAJOR.MINOR.PATCH-PRERELEASE
-   │      │     │        │
-   │      │     │        └─ alpha, beta, or nothing for a stable release
-   │      │     └────────── the patch number
-   │      └──────────────── the minor number
-   └─────────────────────── the major number
-```
+Examples:
 
-| Stage | Meaning |
-| --- | --- |
-| `alpha` | New or rewritten code. May crash, may not have been run in a client |
-| `beta` | Feature complete for the line, still being tested |
-| Stable | No suffix. A release that has been tested and does not crash on launch |
-
-The current release is `4.1.2-alpha`. The last stable build is `4.0.3-stable`.
-
-<Callout variant="warning" title="Alpha means alpha">
-The 4.1.x line contains a rewritten input engine and a rewritten settings
-screen. Both are new code that has not been tested in a running client. The
-repository itself recommends `4.0.3-stable` until the alpha has been tested.
-</Callout>
-
-## The jar name
-
-```text
-inputbooster-<mod version>-<loader>-mc<minecraft>.jar
-
-inputbooster-4.1.2-alpha-fabric-mc263.jar
-           │            │      │    │
-           │            │      │    └─ 263 = Minecraft 26.3
-           │            │      └────── mc
-           │            └───────────── fabric or nf
-           └────────────────────────── the mod version
-```
-
-The loader flavour is also in `gradle.properties`:
-
-| Project | Property | Value |
+| Minecraft | Mod version | Jar |
 | --- | --- | --- |
-| NeoForge | `mod_version` | `4.1.2-alpha-nf-mc262` |
-| Fabric | `mod_version` | `4.1.2-alpha-fabric` |
+| 26.3 | 4.1.2 | <code>inputbooster-4.1.2-mc263.jar</code> |
+| 26.2 | 4.1.2 | <code>inputbooster-4.1.2-mc262.jar</code> |
+| 26.1.2 | 4.1.2 | <code>inputbooster-4.1.2-mc2612.jar</code> |
+| 26.1 | 4.1.2 | <code>inputbooster-4.1.2-mc261.jar</code> |
+| 1.21.11 | 3.1.5 | <code>inputbooster-3.1.5-mc12111.jar</code> |
+| 1.21.4 | 3.1.5 | <code>inputbooster-3.1.5-mc1214.jar</code> |
+| 1.21.1 | 3.1.5 | <code>inputbooster-3.1.5-mc1211.jar</code> |
 
-The Fabric project appends the Minecraft suffix at build time:
+The loader flavour is no longer part of the filename because the current release is Fabric-only.
 
-```groovy
-version = "${mod_version}-mc${minecraft_version.replace('.', '')}"
-```
+## Config schema
 
-<Callout variant="info" title="Why the jar names differ per loader">
-The NeoForge project hardcodes the Minecraft suffix in `gradle.properties`,
-because it builds one target. The Fabric project builds both, so it derives
-the suffix from the `minecraft_version` property.
-</Callout>
+The current properties schema is <code>305</code>. It is independent of the mod version. The schema was introduced in the 4.1.0-alpha line and remains 305 in the 4.1.2 release; the current overlay additions are backwards-compatible keys and do not change the schema number.
 
-## The config schema version
+~~~properties
+config_version=305
+~~~
 
-`config_version` records the shape of the config file.
+Older 3.x config files are migrated on load by renaming the supported legacy keys. Unknown keys are ignored; invalid values are reset to their defaults and reported in the log.
 
-| Schema | Introduced | Change |
-| --- | --- | --- |
-| 305 | 4.1.0-alpha | Nine new engine and overlay keys |
-| 303 and earlier | 3.x | Older schema, migrated on load |
+## Release pipeline
 
-The schema version is bumped when a key changes meaning, not when a key is
-added for a new feature in a way that is backwards compatible. The migration
-is small on purpose: it renames three legacy keys and nothing else.
+The source workflow reads the release tag from the main <code>fabric/gradle.properties</code> project, builds the seven target artifacts, verifies the output set and publishes the release. The 1.21.x artifacts keep their own 3.1.5 mod metadata even though they are attached to the same release asset set.
 
-```java
-public static final int CONFIG_VERSION = 305;
-```
+## Stability labels
 
-<Callout variant="note" title="Migration is idempotent">
-The migration writes the new version back into the properties object, and the
-file is written again on the next save. A migrated file stops migrating.
-</Callout>
-
-## How a release is cut
-
-The CI pipeline publishes a release when a version tag is pushed, or on a
-branch push.
-
-<Steps>
-  <Step title="The version is read">
-    From the tag, or from `mod_version` in `gradle.properties` with the loader
-    flavour stripped.
-  </Step>
-  <Step title="The three jars are built">
-    NeoForge 26.2, Fabric 26.2 and Fabric 26.3, each on Temurin 25.
-  </Step>
-  <Step title="The jars are verified">
-    The release job refuses to publish unless all three are present. The
-    Fabric job checks the dependency range form first.
-  </Step>
-  <Step title="The release is published">
-    All three jars are attached, the notes are generated from the git log
-    since the previous tag, and a prerelease flag is set when the version
-    contains `alpha` or `beta`.
-  </Step>
-</Steps>
-
-<Callout variant="info" title="A version is published once">
-A branch push skips the release if the tag already exists, so pushing to
-`main` twice does not publish two releases.
-</Callout>
-
-## The archived API version
-
-The API repository has its own version line, ending at `3.1.0`. It targets
-Minecraft `>=1.21 <1.22` and Java 21, and it is not connected to the 26.x
-tree. See the [archived API page](/docs/releases/archived-api).
+- <strong>Beta:</strong> the current 4.1.2 build is published under a beta tag and is not the last stable line.
+- <strong>Last stable release:</strong> 4.0.3-stable.
+- Historical alpha and withdrawn releases remain listed in the [changelog](/docs/releases/changelog).
 
 ## Related pages
 
-- [Changelog](/docs/releases/changelog) — what changed in each release.
-- [Support matrix](/docs/releases/support-matrix) — which versions are
-  supported.
-- [Updating](/docs/installation/updating) — moving between versions.
+- [Jar matrix](/docs/installation/jar-matrix) — exact artifact names.
+- [Support matrix](/docs/releases/support-matrix) — dependency requirements.
+- [Updating](/docs/installation/updating) — preserving settings across versions.

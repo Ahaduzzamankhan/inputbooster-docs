@@ -1,111 +1,62 @@
 ---
 title: "Requirements"
-description: "The exact loader, Java and Minecraft versions InputBooster 4.1.2-alpha supports, and how to check what you have."
+description: "The exact Java, Fabric Loader, Fabric API and Minecraft versions required by each InputBooster build."
 order: 2
 group: "Start here"
 ---
 
 <Lead>
-InputBooster 4.1.2-alpha needs Java 25, a Fabric or NeoForge client, and Minecraft
-26.2 or 26.3. There is no build for any other Minecraft version in this source
-tree.
+InputBooster is Fabric-only and client-side. Java depends on the Minecraft line: Java 25 for 26.x, Java 21 or newer for 1.21.x.
 </Lead>
 
-## The short version
+## Required components
 
-| Requirement | Value |
+| Component | Requirement |
 | --- | --- |
-| Java | 25 |
-| Minecraft | 26.2 (Fabric, NeoForge) or 26.3 (Fabric only) |
-| Loader | Fabric Loader 0.19.0+ and Fabric API 0.161.0+, or NeoForge 26.2.0.88+ |
-| Side | Client only |
-| Mod loader install | Exactly one InputBooster jar |
+| Loader | Fabric Loader 0.19.0 or newer |
+| API | The Fabric API build matching your Minecraft target; see the table below |
+| Java for Minecraft 26.x | Java 25 |
+| Java for Minecraft 1.21.x | Java 21 or newer |
+| Installation side | Client only |
+| NeoForge | Not supported by the current source tree |
 
-## Java 25
+## Match Fabric API to Minecraft
 
-The mixin manifest declares `compatibilityLevel: JAVA_25`, and the Fabric
-`fabric.mod.json` requires `"java": ">=25"`. A Java 21 runtime cannot load the
-mod.
+| Minecraft | Configured Fabric API |
+| --- | --- |
+| 26.3 | 0.161.0+26.3 |
+| 26.2 | 0.161.0+26.2 |
+| 26.1.2 | 0.155.3+26.1.2 |
+| 26.1 | 0.155.3+26.1.2 |
+| 1.21.11 | 0.141.6+1.21.11 |
+| 1.21.4 | 0.119.4+1.21.4 |
+| 1.21.1 | 0.116.18+1.21.1 |
 
-<Callout variant="warning" title="Check your Java, not just the launcher">
-A launcher can be configured for one Java version and still launch the game with
-another. If the game refuses to start with a class-version error, the launcher
-is the thing to check, not the mod.
-</Callout>
+Use the API release matching the exact game version. The metadata declares the corresponding minimum API version.
 
-To confirm which Java a launcher uses, look at the launcher's version or
-profile panel, or run a command in the folder that contains the launcher:
+## Optional mods
 
-<Command command="java -version" block label="Verify your default Java" />
+- **Sodium:** optional. On the 26.x builds, a compatible Sodium Config API exposes InputBooster's native pages in Sodium Video Settings. The 1.21.x builds do not declare that entrypoint.
+- **Mod Menu:** optional. Its configuration entry opens the vanilla settings screen.
 
-## Minecraft versions
+Neither optional mod is required for the input engine to run.
 
-Only two Minecraft versions are built from this tree:
+## Client only
 
-| Minecraft | Fabric jar | NeoForge jar |
-| --- | --- | --- |
-| 26.2 | `inputbooster-4.1.2-alpha-fabric-mc262.jar` | `inputbooster-4.1.2-alpha-nf-mc262.jar` |
-| 26.3 | `inputbooster-4.1.2-alpha-fabric-mc263.jar` | — |
+InputBooster has no server jar, server entrypoint or companion plugin. Only the player using the mod installs it. A multiplayer server does not need InputBooster.
 
-There is no NeoForge build for 26.3. The NeoForge build targets Minecraft 26.2
-through the `neoforge.mods.toml` dependency range `[26.2,26.3)`.
+## Check Java
 
-<Callout variant="danger" title="1.21.x is not supported here">
-Older versions of this mod existed for Minecraft 1.21.x. That line is not part
-of this source tree, and the [archived API](/docs/releases/archived-api) does
-not make 1.21 work. If you need 1.21, you need a different build from the
-project's release history.
-</Callout>
+Run the following in a terminal:
 
-## Fabric requirements
+~~~bash
+java -version
+~~~
 
-The Fabric build declares these dependencies:
+For a 26.x instance, the runtime must be Java 25. For a 1.21.x instance, Java 21 is the declared minimum.
 
-```json
-"depends": {
-  "fabricloader": ">=0.19.0",
-  "fabric-api": ">=0.161.0",
-  "minecraft": ">=26.3 <26.4",
-  "java": ">=25"
-}
-```
+## Related pages
 
-The 26.2 jar replaces the Minecraft range with `>=26.2 <26.3`.
-
-Fabric API is a hard dependency. The mod does not ship a Fabric API
-implementation, and the platform entrypoint registers key mappings through the
-loader API.
-
-<Callout variant="info" title="Why the range has no brackets">
-The 26.3 jar uses `>=26.3 <26.4` rather than `[26.3,26.4)`. Fabric Loader
-0.19.5 mis-parses bracket ranges when the Minecraft version has two components
-and rejects 26.3 itself. The space-separated comparison form is parsed
-correctly. This is a loader bug workaround, not a version policy.
-</Callout>
-
-## NeoForge requirements
-
-The NeoForge build requires `neoforge` `[26.2.0.88,)` and `minecraft`
-`[26.2,26.3)`. NeoForge bundles the loader, so there is no separate Fabric API
-requirement. The mod is declared `side="CLIENT"`.
-
-## Checking what you have
-
-Before installing, confirm three things:
-
-1. The Minecraft version in your launcher matches the jar's `mc262` or `mc263`
-   suffix.
-2. Your loader version is new enough for the table above.
-3. Your Java is 25.
-
-The [jar matrix](/docs/installation/jar-matrix) page maps every published jar to
-its version range, and [installing](/docs/getting-started/installation) covers
-the actual file placement.
-
-## What you do not need
-
-- **A server-side install.** The mod is client only. A server does not install
-  it, does not need a plugin for it, and cannot see it.
-- **Fabric API on NeoForge.** Not applicable.
-- **A separate API mod.** The public API repository is archived and is not
-  wired into 26.x. See [archived API](/docs/releases/archived-api).
+- [Support matrix](/docs/releases/support-matrix) — exact dependency ranges.
+- [Jar matrix](/docs/installation/jar-matrix) — select the correct artifact.
+- [Client only](/docs/installation/client-only) — what the server does and does not receive.

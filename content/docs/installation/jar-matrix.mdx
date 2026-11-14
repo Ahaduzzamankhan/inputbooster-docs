@@ -1,102 +1,57 @@
 ---
 title: "Jar matrix"
-description: "Every published InputBooster jar, the Minecraft version it targets, the loader it needs and whether it can start."
+description: "Choose the one InputBooster jar that matches your Minecraft version."
 order: 1
-group: "Jar selection"
+group: "Installation"
 ---
 
 <Lead>
-One jar per loader and Minecraft version. This page is the table that tells you
-which file goes in your `mods` folder, and which published jars are known to
-crash the client.
+The <code>v4.1.2-beta3</code> GitHub release contains seven Fabric artifacts. Match the Minecraft version exactly; do not install more than one InputBooster jar.
 </Lead>
 
-## Current release
+## Current release assets
 
-InputBooster `4.1.2-alpha` is the current source tree.
-
-| Loader | Minecraft | Jar | Status |
-| --- | --- | --- | --- |
-| NeoForge | 26.2 | `inputbooster-4.1.2-alpha-nf-mc262.jar` | Current |
-| Fabric | 26.2 | `inputbooster-4.1.2-alpha-fabric-mc262.jar` | Current |
-| Fabric | 26.3 | `inputbooster-4.1.2-alpha-fabric-mc263.jar` | Current |
-
-<Callout variant="warning" title="Alpha, not stable">
-The 4.1.x line is alpha. The input engine and the settings screen are new code
-that has not been tested in a running client. `4.0.3-stable` is the last stable
-build and is the safer choice if you cannot afford a crash mid-session.
-</Callout>
-
-## Previous 4.x releases
-
-| Version | NeoForge 26.2 | Fabric 26.2 | Fabric 26.3 |
-| --- | --- | --- | --- |
-| 4.1.2-alpha | `inputbooster-4.1.2-alpha-nf-mc262.jar` | `inputbooster-4.1.2-alpha-fabric-mc262.jar` | `inputbooster-4.1.2-alpha-fabric-mc263.jar` |
-| 4.1.1-alpha | `inputbooster-4.1.1-alpha-nf-mc262.jar` | `inputbooster-4.1.1-alpha-fabric-mc262.jar` | `inputbooster-4.1.1-alpha-fabric-mc263.jar` |
-| 4.1.0-alpha | `inputbooster-4.1.0-alpha-nf-mc262.jar` | `inputbooster-4.1.0-alpha-fabric-mc262.jar` | `inputbooster-4.1.0-alpha-fabric-mc263.jar` |
-| 4.0.3-stable | `inputbooster-4.0.3-stable-nf-mc262.jar` | `inputbooster-4.0.3-stable-fabric-mc262.jar` | `inputbooster-4.0.3-stable-fabric-mc263.jar` |
-| 4.0.2-stable | `inputbooster-4.0.2-stable-nf-mc262.jar` | `inputbooster-4.0.2-stable-fabric-mc262.jar` | `inputbooster-4.0.2-stable-fabric-mc263.jar` |
-| 4.0.2-alpha | `inputbooster-4.0.2-alpha-nf-mc262.jar` | `inputbooster-4.0.2-alpha-fabric-mc262.jar` | `inputbooster-4.0.2-alpha-fabric-mc263.jar` |
-| 4.0.1-beta | `inputbooster-4.0.1-beta-nf-mc262.jar` | `inputbooster-4.0.1-beta-fabric-mc262.jar` | `inputbooster-4.0.1-beta-fabric-mc263.jar` |
-
-## Jars that must not be used
-
-<Callout variant="danger" title="4.0.2-stable crashes on launch">
-`4.0.2-stable` crashes before the main menu on every client. The three
-accessor mixins carried their cast helpers as `public static` methods, which
-Mixin rejects, and that aborts the transformation of `Minecraft` itself. Use
-`4.0.3-stable` instead.
-</Callout>
-
-| Version | Why it is unusable |
-| --- | --- |
-| `4.0.2-stable` | Crashes before the main menu on every client. Use 4.0.3-stable. |
-| `4.1.0-alpha` | Crashes during startup on every loader: the keyboard mixin was written against the 1.21 signature and 26.x uses `keyPress(long, int, KeyEvent)`. |
-| `3.1.2` | Every Fabric jar rejects the Minecraft version it was built for. The dependency range `[26.2,26.3)` is parsed incorrectly by Fabric Loader 0.19.5. |
-| `3.1.3` | Crashes on startup. Three accessors were declared as interface mixins against class targets. |
-
-The full list of what changed in each release is in the
-[changelog](/docs/releases/changelog).
-
-## Older lines
-
-| Version | Minecraft | Note |
+| Minecraft | Jar filename | Java |
 | --- | --- | --- |
-| 3.1.4 | 26.2 / 26.3 | Mixin declaration fix |
-| 3.1.3 | 26.2 / 26.3 | Loader compatibility fix — still crashed |
-| 3.1.2 | 26.2 / 26.3 | First 26.x line |
-| 3.1.1 | 26.2 / 26.3 | — |
-| 3.1.0 | 26.2 / 26.3 | — |
-| 3.0.2-rl1 | 1.21.11 | Production release of the 1.21 line |
-| 3.0.2-beta01/02 | 1.21.11 | — |
+| 26.3 | <code>inputbooster-4.1.2-mc263.jar</code> | 25 |
+| 26.2 | <code>inputbooster-4.1.2-mc262.jar</code> | 25 |
+| 26.1.2 | <code>inputbooster-4.1.2-mc2612.jar</code> | 25 |
+| 26.1 | <code>inputbooster-4.1.2-mc261.jar</code> | 25 |
+| 1.21.11 | <code>inputbooster-3.1.5-mc12111.jar</code> | 21 |
+| 1.21.4 | <code>inputbooster-3.1.5-mc1214.jar</code> | 21 |
+| 1.21.1 | <code>inputbooster-3.1.5-mc1211.jar</code> | 21 |
 
-<Callout variant="info" title="The 1.21 line is a different codebase">
-The 1.21.x jars come from an older tree with a different configuration layout,
-different key binds and a different engine. Nothing in this documentation
-describes them, because the source this site is generated from does not build
-them.
+[Open the InputBooster releases](https://github.com/Ahaduzzamankhan/inputbooster/releases).
+
+## Why two mod versions appear
+
+The four 26.x artifacts report mod version 4.1.2. The three 1.21.x artifacts report 3.1.5 and come from independent legacy project directories. They are separate builds, not interchangeable jars.
+
+All seven are Fabric client mods. There is no NeoForge artifact in the current release workflow.
+
+## Select and install
+
+<Steps>
+  <Step title="Check the exact Minecraft version">
+    Do not choose a jar based on a nearby version. For example, 26.1 and 26.1.2 have different artifacts.
+  </Step>
+  <Step title="Check Java">
+    Use Java 25 for Minecraft 26.x and Java 21 or newer for the 1.21.x builds.
+  </Step>
+  <Step title="Install Fabric">
+    Install a Fabric Loader version of 0.19.0 or newer and the Fabric API version listed in the [support matrix](/docs/releases/support-matrix).
+  </Step>
+  <Step title="Copy one jar">
+    Put exactly one matching InputBooster jar in the instance's <code>mods</code> folder.
+  </Step>
+</Steps>
+
+<Callout variant="danger" title="Do not combine jars">
+Each artifact contains the mod's client entrypoints and mixins. Two versions in one <code>mods</code> folder can load duplicate classes and cause startup failure.
 </Callout>
 
-## Naming scheme
+## Related pages
 
-The suffix tells you everything:
-
-```text
-inputbooster-<version>-<loader>-mc<minecraft>.jar
-                │          │       └─ 262 or 263
-                │          └───────── fabric or nf
-                └──────────────────── 4.1.2-alpha
-```
-
-`nf` is NeoForge. There is no `nf-mc263` jar because the NeoForge build
-targets Minecraft 26.2 only.
-
-## Picking a file in five seconds
-
-1. Do you play on NeoForge? If yes, take `nf-mc262` and you must be on
-   Minecraft 26.2.
-2. Otherwise take a `fabric` jar.
-3. Match `mc262` or `mc263` to your Minecraft version.
-4. Take the highest version number in that row.
-
-<Command command="inputbooster-4.1.2-alpha-fabric-mc263.jar" block label="Fabric, Minecraft 26.3" />
+- [Installation](/docs/getting-started/installation) — the complete setup.
+- [Requirements](/docs/getting-started/requirements) — loader, API and Java versions.
+- [Support matrix](/docs/releases/support-matrix) — declared dependency ranges.

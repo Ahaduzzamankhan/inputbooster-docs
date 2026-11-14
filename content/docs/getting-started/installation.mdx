@@ -1,129 +1,73 @@
 ---
 title: "Installation"
-description: "Install the right InputBooster jar for your loader and Minecraft version, verify it loaded, and find the files it writes."
+description: "Install the matching Fabric jar, set the correct Java runtime, and open the settings."
 order: 3
 group: "Start here"
 ---
 
 <Lead>
-Installation is one jar in one folder. The only real decision is which jar:
-pick the one whose `mc262` or `mc263` suffix matches your Minecraft version and
-your loader.
+Choose the jar for your exact Minecraft version. Every current artifact is Fabric-only and client-side.
 </Lead>
 
 ## Before you start
 
-- [Requirements](/docs/getting-started/requirements) — confirm Java 25 and your
-  loader version.
-- [Jar matrix](/docs/installation/jar-matrix) — the full table of published
-  jars and their version ranges.
+1. Install Fabric Loader 0.19.0 or newer for your Minecraft version.
+2. Install the matching Fabric API release.
+3. Select the correct Java runtime: Java 25 for Minecraft 26.x, Java 21 or newer for 1.21.x.
+4. Download one InputBooster artifact from the [GitHub releases page](https://github.com/Ahaduzzamankhan/inputbooster/releases).
 
-## Install
+Use the [support matrix](/docs/releases/support-matrix) to confirm the exact API version.
+
+## Choose the jar
+
+| Minecraft | Jar |
+| --- | --- |
+| 26.3 | <code>inputbooster-4.1.2-mc263.jar</code> |
+| 26.2 | <code>inputbooster-4.1.2-mc262.jar</code> |
+| 26.1.2 | <code>inputbooster-4.1.2-mc2612.jar</code> |
+| 26.1 | <code>inputbooster-4.1.2-mc261.jar</code> |
+| 1.21.11 | <code>inputbooster-3.1.5-mc12111.jar</code> |
+| 1.21.4 | <code>inputbooster-3.1.5-mc1214.jar</code> |
+| 1.21.1 | <code>inputbooster-3.1.5-mc1211.jar</code> |
+
+The 1.21.x artifacts are separate 3.1.5 builds. Do not substitute a 26.x jar or a jar for a different 1.21 patch release.
+
+## Install the jar
 
 <Steps>
-  <Step title="Pick exactly one jar">
-    Match the `mc262` or `mc263` suffix to your Minecraft version and the loader
-    name to your loader. Never install two InputBooster jars at once — both
-    register the same key mappings and the same mixins, and the client will
-    crash during class transformation.
+  <Step title="Open the instance folder">
+    Open the Minecraft instance's game directory, then open its <code>mods</code> folder. Create the folder if it does not exist.
   </Step>
-  <Step title="Copy it into the mods folder">
-    The folder is the `mods` directory inside your Minecraft installation. On the
-    official launcher it is the one with the `versions` folder next to it.
+  <Step title="Copy the matching artifact">
+    Copy exactly one InputBooster jar into <code>mods</code>. Do not keep another InputBooster version beside it.
   </Step>
-  <Step title="Start the client">
-    Launch Minecraft. The mod is client only, so join a world to test it; the
-    settings button is on the options screen, not in a server list.
+  <Step title="Launch the Fabric profile">
+    Start Minecraft using the Fabric installation and the Java version required by that game line.
   </Step>
-  <Step title="Check the log">
-    Look for the ready line. If it is missing, the mod did not load.
+  <Step title="Open settings">
+    Open Options and select the InputBooster button. Mod Menu can also open the vanilla settings screen. On 26.x, a compatible Sodium Config API additionally exposes InputBooster pages in Sodium Video Settings.
   </Step>
 </Steps>
 
-<Callout variant="danger" title="One jar per profile">
-`inputbooster-4.1.2-alpha-fabric-mc262.jar` and
-`inputbooster-4.1.2-alpha-fabric-mc263.jar` are different builds of the same
-mod. Installing both puts two copies of `GameTickMixin` and two
-`KeyboardHandlerMixin` into the same class, which fails the client at startup.
-</Callout>
+## Optional integrations
 
-## Fabric
+Sodium and Mod Menu are optional. The 26.x builds register Sodium configuration pages when a compatible Sodium Config API is available. The 1.21.x builds do not register that API entrypoint, so use the vanilla options screen or Mod Menu for those versions.
 
-Fabric needs three things in `mods`: the InputBooster jar, Fabric API, and any
-other mods you use.
+## Verify the installation
 
-<Command command=".minecraft/mods/inputbooster-4.1.2-alpha-fabric-mc263.jar" block label="Fabric 26.3" />
+The client log should contain an InputBooster startup line showing the mod and Minecraft versions. You can also run the client command:
 
-<Command command=".minecraft/mods/inputbooster-4.1.2-alpha-fabric-mc262.jar" block label="Fabric 26.2" />
+~~~text
+/inputbooster
+~~~
 
-## NeoForge
+It reports the mod version, Minecraft version, Sodium integration status and overlay state.
 
-NeoForge has no separate API jar. The mod goes in the same `mods` folder.
+If the mod does not load, check Java, Fabric Loader, Fabric API and the exact jar name before changing settings.
 
-<Command command=".minecraft/mods/inputbooster-4.1.2-alpha-nf-mc262.jar" block label="NeoForge 26.2" />
+## Related pages
 
-## Verify it loaded
-
-The mod prints a ready line during initialisation. Open the log file and look
-for it:
-
-<Command command=".minecraft/logs/latest.log" block label="The log the mod writes to" />
-
-```text
-[InputBooster] Starting v4.1.2-alpha
-[Mixin] All client hooks present.
-[Mixin] Screen hooks: setScreenAndShow=true, setScreen=false
-[inputbooster-config] Loading config from .../config/inputbooster.properties
-[inputbooster-config] ✓ Config loaded successfully (config version 305)
-[Input] Polling thread started at 200 Hz.
-[InputBooster] Ready!
-```
-
-If you see `Ready!`, the engine, the poller and the mixins are all live. The
-lines above it tell you which optional parts applied; the
-[log reference](/docs/troubleshooting/log-reference) explains each one.
-
-<Callout variant="warning" title="`Fatal init error!` means the mod is off">
-`[InputBooster] Fatal init error! InputBooster is disabled for this session.`
-means initialisation threw, the mod disabled itself, and nothing in it will
-work. The stack trace above that line is the actual cause. Removing the jar and
-re-reading the [common issues](/docs/troubleshooting/common-issues) page is
-faster than guessing.
-</Callout>
-
-## Where the mod writes
-
-Everything lives next to the game, in the `config` folder:
-
-<FileTree
-  title="Files InputBooster creates"
-  items={[
-    ".minecraft/config/inputbooster.properties",
-    ".minecraft/config/inputbooster_profiles.json",
-    ".minecraft/config/inputbooster_server_profiles.properties",
-  ]}
-/>
-
-The `inputbooster.properties` file is created on the first launch with every
-default in it. The two other files only appear when you use profiles.
-
-<Callout variant="info" title="Edit the file with the game closed">
-The config is written when the settings screen saves and when the client
-shuts down. Editing `inputbooster.properties` while the game is running means
-your edit can be overwritten at the next save. Close the game first.
-</Callout>
-
-## Removing it
-
-Delete the jar. The config files stay where they are, so a reinstall picks up
-your old settings. Delete `config/inputbooster.properties` as well if you want
-a clean start; the mod recreates it with defaults on the next launch.
-
-## Next
-
-- [First session](/docs/getting-started/first-session) — open the settings and
-  confirm the engine is doing what you expect.
-- [Updating](/docs/installation/updating) — moving between versions without
-  losing your settings.
-- [Client only](/docs/installation/client-only) — what the mod sends to a
-  server, and what it does not.
+- [Requirements](/docs/getting-started/requirements)
+- [Jar matrix](/docs/installation/jar-matrix)
+- [First session](/docs/getting-started/first-session)
+- [Common issues](/docs/troubleshooting/common-issues)

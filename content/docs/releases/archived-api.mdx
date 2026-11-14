@@ -1,119 +1,33 @@
 ---
-title: "The archived API"
-description: "The status of the separate InputBooster API repository, what it offered, and why it does not work with 26.x."
+title: "Archived API"
+description: "The old 1.21.x API project and its relationship to the current Fabric mod artifacts."
 order: 4
 group: "Releases"
 ---
 
 <Lead>
-There are two repositories with the InputBooster name. The mod and this
-documentation come from one. The API is a separate, archived project that is
-not connected to the current tree.
+The archived API project and the current InputBooster mod are separate deliverables. Current 1.21.x mod jars exist, but they do not restore or bundle the archived public API.
 </Lead>
 
-## Its status
+## Separate projects
 
-The API repository's own README opens with the conclusion:
-
-```text
-InputBooster API - No Longer Maintained
-
-> Maintenance has ended. This repository is no longer actively developed
-> or supported. It is preserved for reference only.
-```
-
-<Callout variant="danger" title="Do not build against it">
-A dependency on `dev.inputbooster:inputbooster-api:3.1.0` will not work with
-the 4.1.x mod. The API targets Minecraft `>=1.21 <1.22`; the mod targets 26.2
-and 26.3. There is no bridge between them.
-</Callout>
-
-## What it targeted
-
-| Property | The archived API | The current mod |
+| | Archived API | Current mod artifacts |
 | --- | --- | --- |
-| Minecraft | `>=1.21 <1.22` | 26.2 and 26.3 |
-| Java | 21+ | 25 |
-| Loader | Fabric only | Fabric and NeoForge |
-| API version | `3.1.0` | — |
-| Status | Archived, unmaintained | Active, alpha |
+| Minecraft | 1.21.x | 1.21.1, 1.21.4, 1.21.11, 26.1, 26.1.2, 26.2, 26.3 |
+| Loader | Fabric | Fabric only |
+| Java | 21 | 21 for 1.21.x; 25 for 26.x |
+| Mod/API version | API 3.1.0 | Mod 3.1.5 on 1.21.x; 4.1.2 on 26.x |
+| Status | Archived and unmaintained | Mod artifacts are built by the current release workflow |
 
-## What it offered
+There is no bridge between the API and the mod. The current mod source does not contain the old <code>dev.inputbooster.api</code> package or register the old API entrypoint.
 
-The API exposed live statistics, configuration controls, profile helpers,
-latency metrics and an event listener surface, without forcing dependent mods
-to require InputBooster at runtime.
+## What this means
 
-Its own quick-use example:
-
-```java
-if (InputBoosterAPI.isLoaded()) {
-    InputBoosterAPI api = InputBoosterAPI.getInstance();
-    int hz = api.getPollRateHz();
-    api.setAutoMode(true);
-}
-```
-
-And a snapshot helper for HUD and debug overlays:
-
-```java
-InputBoosterStats.snapshot()
-```
-
-## How it was meant to be wired in
-
-The API's maintainer notes describe the integration as a manual step:
-
-```text
-Copy impl-stub/java/dev/inputbooster/api/impl/InputBoosterAPIImpl.java
-into the main InputBooster mod source tree and register it after
-initialization.
-```
-
-<Callout variant="warning" title="That step was never performed">
-The current source tree contains no `dev.inputbooster.api` package, no
-`InputBoosterAPI` class and no `InputBoosterAPIImpl`. The implementation
-stub was never merged into the 26.x tree.
-</Callout>
-
-## Why it is not connected
-
-| Reason | Detail |
-| --- | --- |
-| The Minecraft version moved | The API is pinned to 1.21.x. The mod is 26.2 and 26.3 |
-| The Java version moved | The API needs Java 21. The mod needs Java 25 |
-| The engine was rewritten | The 4.1.0 engine introduced `InputEngine`, a new state machine and new diagnostics. The API's surfaces do not map onto it |
-| Maintenance ended | The repository states it should not be assumed to receive compatibility updates |
-
-## What to use instead
-
-| You want to… | Use |
-| --- | --- |
-| Read live input statistics | The overlay and the Overview tab of the settings screen |
-| Change a setting from another mod | The config file, or the settings screen |
-| React to input events | There is no public event API in 4.1.2-alpha |
-| Build a profile | The profiles screen and `inputbooster_profiles.json` |
-| Read the latency figures | The profiler and the session statistics |
-
-<Callout variant="info" title="An honest gap">
-The current mod has no supported way for another mod to observe its input
-events. If you need that, the options are to contribute a listener surface to
-the mod, or to read the diagnostics counters. The
-[contribution guide](/docs/contributing/workflow) covers the first option.
-</Callout>
-
-## The repository
-
-<VideoEmbed
-  src="https://github.com/Ahaduzzamankhan/inputbooster-api"
-  title="The archived InputBooster API repository"
-  description="Preserved for reference. Its README states that maintenance has ended and that it should not be assumed to receive compatibility updates."
-/>
+- A mod compiled against the archived API cannot assume the current InputBooster jars provide those API classes.
+- Installing a current 1.21.x InputBooster jar does not make the archived API available.
+- The 1.21.x mod builds are separate older project trees, not the 4.1.2 26.x project compiled against a different Minecraft version.
 
 ## Related pages
 
-- [Support matrix](/docs/releases/support-matrix) — what the current mod
-  supports.
-- [Limitations](/docs/reference/limitations) — the other known gaps.
-- [Architecture](/docs/developers/architecture) — the packages that exist in
-  the current tree.
+- [Support matrix](/docs/releases/support-matrix) — current mod targets.
+- [Versioning](/docs/releases/versioning) — mod versions and artifact names.

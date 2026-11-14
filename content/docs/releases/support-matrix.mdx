@@ -1,118 +1,67 @@
 ---
 title: "Support matrix"
-description: "Exactly which Minecraft versions, loaders and Java versions each published jar supports."
+description: "The Minecraft versions, Fabric Loader, Fabric API and Java versions declared by each published jar."
 order: 2
 group: "Releases"
 ---
 
 <Lead>
-Three jars cover the whole supported surface. Everything else in the release
-history either targets an older Minecraft or must not be installed.
+The current release tag is <code>v4.1.2-beta3</code>. Its release workflow publishes seven Fabric jars: four 26.x targets built as InputBooster 4.1.2, and three 1.21.x targets built from separate 3.1.5 project trees.
 </Lead>
 
-## The current jars
+## Published targets
 
-| Loader | Minecraft | Java | Jar |
-| --- | --- | --- | --- |
-| NeoForge | 26.2 | 25 | `inputbooster-4.1.2-alpha-nf-mc262.jar` |
-| Fabric | 26.2 | 25 | `inputbooster-4.1.2-alpha-fabric-mc262.jar` |
-| Fabric | 26.3 | 25 | `inputbooster-4.1.2-alpha-fabric-mc263.jar` |
+| Minecraft | InputBooster version | Java | Configured Fabric API | Jar |
+| --- | --- | --- | --- | --- |
+| 26.3 | 4.1.2 | 25 | 0.161.0+26.3 | <code>inputbooster-4.1.2-mc263.jar</code> |
+| 26.2 | 4.1.2 | 25 | 0.161.0+26.2 | <code>inputbooster-4.1.2-mc262.jar</code> |
+| 26.1.2 | 4.1.2 | 25 | 0.155.3+26.1.2 | <code>inputbooster-4.1.2-mc2612.jar</code> |
+| 26.1 | 4.1.2 | 25 | 0.155.3+26.1.2 | <code>inputbooster-4.1.2-mc261.jar</code> |
+| 1.21.11 | 3.1.5 | 21 | 0.141.6+1.21.11 | <code>inputbooster-3.1.5-mc12111.jar</code> |
+| 1.21.4 | 3.1.5 | 21 | 0.119.4+1.21.4 | <code>inputbooster-3.1.5-mc1214.jar</code> |
+| 1.21.1 | 3.1.5 | 21 | 0.116.18+1.21.1 | <code>inputbooster-3.1.5-mc1211.jar</code> |
 
-## The dependency declarations
+All seven artifacts are Fabric client mods. There is no current NeoForge build.
 
-These are the exact ranges in the mod metadata, not a summary.
+## Loader and Minecraft ranges
 
-### Fabric 26.3
+Every current artifact declares Fabric Loader <code>>=0.19.0</code>. The Minecraft and Java ranges are:
 
-```json
-"depends": {
-  "fabricloader": ">=0.19.0",
-  "fabric-api": ">=0.161.0",
-  "minecraft": ">=26.3 <26.4",
-  "java": ">=25"
-}
-```
+| Target | Minecraft range | Java range |
+| --- | --- | --- |
+| 26.3 | <code>>=26.3 &lt;26.4</code> | <code>>=25</code> |
+| 26.2 | <code>>=26.2 &lt;26.3</code> | <code>>=25</code> |
+| 26.1.2 | <code>>=26.1.2 &lt;26.1.3</code> | <code>>=25</code> |
+| 26.1 | <code>>=26.1 &lt;26.2</code> | <code>>=25</code> |
+| 1.21.11 | <code>>=1.21.11 &lt;1.21.12</code> | <code>>=21</code> |
+| 1.21.4 | <code>>=1.21.4 &lt;1.21.5</code> | <code>>=21</code> |
+| 1.21.1 | <code>>=1.21.1 &lt;1.21.2</code> | <code>>=21</code> |
 
-### Fabric 26.2
+The 1.21.x projects are separate older codebases. They are not the 4.1.2 26.x implementation compiled against a different game version.
 
-```json
-"depends": {
-  "fabricloader": ">=0.19.0",
-  "fabric-api": ">=0.161.0",
-  "minecraft": ">=26.2 <26.3",
-  "java": ">=25"
-}
-```
+## Optional integrations
 
-### NeoForge 26.2
-
-```toml
-[[dependencies.${mod_id}]]
-modId="neoforge"
-type="required"
-versionRange="[26.2.0.88,)"
-side="CLIENT"
-
-[[dependencies.${mod_id}]]
-modId="minecraft"
-type="required"
-versionRange="[26.2,26.3)"
-side="CLIENT"
-```
-
-## The requirement table
-
-| Requirement | Fabric 26.2 | Fabric 26.3 | NeoForge 26.2 |
-| --- | --- | --- | --- |
-| Minecraft | 26.2 | 26.3 | 26.2 |
-| Loader | Fabric 0.19.0+ | Fabric 0.19.0+ | NeoForge 26.2.0.88+ |
-| API | Fabric API 0.161.0+ | Fabric API 0.161.0+ | — |
-| Java | 25 | 25 | 25 |
-| Side | Client | Client | Client |
-| Mixin level | `JAVA_25` | `JAVA_25` | `JAVA_25` |
-
-<Callout variant="info" title="Why the Fabric range has no brackets">
-Fabric Loader 0.19.5 mis-parses `[26.3,26.4)` when the Minecraft version has
-two components, and rejects 26.3 itself. The space-separated comparison form
-is parsed and evaluated correctly. The CI pipeline asserts this form before
-it uploads a jar.
-</Callout>
+- **Mod Menu** is optional and provides a configuration entry.
+- **Sodium** is optional. The 26.x projects declare the Sodium Config API entrypoint and expose native Sodium settings pages when a compatible Sodium build is installed.
+- The 1.21.x projects do not declare the Sodium Config API entrypoint. Use the vanilla options screen or Mod Menu for those builds, even if Sodium is installed.
 
 ## What is not supported
 
 | Combination | Status |
 | --- | --- |
-| Minecraft 1.21.x | No build in this tree. The 1.21 jars are a different codebase |
-| NeoForge + Minecraft 26.3 | No build exists |
-| Java 21 | The mixin manifest requires `JAVA_25` |
-| Fabric Loader below 0.19.0 | Below the declared minimum |
-| Fabric API below 0.161.0 | Below the declared minimum |
-| NeoForge below 26.2.0.88 | Below the declared minimum |
-| Server-side install | The mod is client only on both loaders |
+| NeoForge | No current build |
+| Minecraft 26.0 or 26.4+ | No matching jar |
+| Minecraft 1.21.2–1.21.10 | No matching jar |
+| Java 21 with Minecraft 26.x | Unsupported; use Java 25 |
+| Java 25 with Minecraft 1.21.x | Not required; Java 21 is the declared minimum |
+| Server-side installation | Unsupported; the mod is client only |
 
-## The older lines
-
-| Version | Minecraft | Loaders | Note |
-| --- | --- | --- | --- |
-| 4.1.1-alpha, 4.1.0-alpha | 26.2 / 26.3 | Fabric, NeoForge | 4.1.0 crashes on launch |
-| 4.0.3-stable | 26.2 / 26.3 | Fabric, NeoForge | The last stable build |
-| 4.0.2-stable | 26.2 / 26.3 | Fabric, NeoForge | Crashes on launch |
-| 4.0.2-alpha, 4.0.1-beta | 26.2 / 26.3 | Fabric, NeoForge | Alpha and beta |
-| 3.1.4 | 26.2 / 26.3 | Fabric, NeoForge | — |
-| 3.1.3, 3.1.2 | 26.2 / 26.3 | Fabric, NeoForge | Crashes on launch |
-| 3.1.1, 3.1.0 | 26.2 / 26.3 | Fabric, NeoForge | — |
-| 3.0.2-rl1 and earlier betas | 1.21.11 | Fabric, NeoForge | A different codebase |
-
-## Install exactly one
-
-<Callout variant="danger" title="Two jars never go in the same folder">
-Every jar contains the same mixins. Two jars means two copies of
-`GameTickMixin` and two `KeyboardHandlerMixin` in the same class, which fails
-the client during class transformation.
+<Callout variant="info" title="Why version ranges use comparisons">
+The Fabric metadata uses the space-separated comparison form, such as <code>>=26.3 &lt;26.4</code>. Keep that form when editing metadata; the project has a regression test for it.
 </Callout>
 
 ## Related pages
 
-- [Jar matrix](/docs/installation/jar-matrix) — the file names.
-- [Requirements](/docs/getting-started/requirements) — checking your setup.
-- [Changelog](/docs/releases/changelog) — what changed.
+- [Jar matrix](/docs/installation/jar-matrix) — exact release filenames.
+- [Requirements](/docs/getting-started/requirements) — what to install.
+- [Versioning](/docs/releases/versioning) — why the 26.x and 1.21.x jars have different mod versions.
