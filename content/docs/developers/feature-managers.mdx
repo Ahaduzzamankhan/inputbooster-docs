@@ -71,6 +71,15 @@ The burst manager is ticked outside the module manager — it follows
 | `DebugOverlayManager` | `show_f3_info` | Owns the decision to draw the overlay |
 | `OverlayRenderer`, `OverlayLayout` | `overlay_*` | Draws the panel and places it |
 
+
+<Callout variant="note" title="The diagnostics-list helper is not wired to the current UI">
+<code>DebugOverlayManager.getDebugLines()</code> still builds a list, and its
+class comment refers to a diagnostics tab. No current screen or command calls
+that method. The live HUD overlay is drawn separately by
+<code>OverlayRenderer</code> and shows the engine, event counters and
+dispatch/queue line.
+</Callout>
+
 ### Features
 
 | Class | Config key | What it does |

@@ -11,7 +11,7 @@ The overlay is a diagnostics panel. It can show the engine mode and poll rate, i
 
 ## Visibility
 
-The overlay requires <code>show_f3_info=true</code>, a player, and an enabled vanilla HUD. It is drawn when <code>overlay_mode=1</code> or the F3 debug screen is open. The default mode is F3-only.
+The overlay requires <code>show_f3_info=true</code>, a player and a visible HUD (F1 must not be hiding it). It is suppressed when opacity is at or below 0.001 unless the test rectangle is enabled. It is drawn when <code>overlay_mode=1</code> or the F3 debug screen is open; the default mode is F3-only.
 
 When F3 is open, the panel is placed below the debug text and its background is hidden so it does not cover the debug display.
 

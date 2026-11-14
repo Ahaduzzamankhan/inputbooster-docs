@@ -116,8 +116,10 @@ defines the current behavior.
 ## Reading the resolved mode
 
 The General page in Sodium, or the Input engine section of the vanilla screen,
-exposes the configured engine mode and compatibility fallback. The overlay
-shows the current mode and detected mod IDs in its engine line.
+exposes the configured mode and fallback toggle. The on-screen overlay line
+shows the resolved mode and current poll rate. The helper below returns the
+detected mod IDs for `DebugOverlayManager.getDebugLines()`; that list helper
+has no current UI or command call site, so it is not drawn by the overlay.
 
 The status line is built as follows:
 
