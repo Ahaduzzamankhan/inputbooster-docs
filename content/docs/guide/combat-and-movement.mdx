@@ -105,10 +105,10 @@ second, so two clicks in the same second always see the same limit.
 two accepted clicks. The gap is computed in milliseconds first and converted
 to nanoseconds once.
 
-<Callout variant="warning" title="The CPS mode is not validated">
-`cps_mode` is read, upper-cased and stored, but it is never checked against
-the four known names. An unknown value falls through to the `FIXED` branch of
-the switch, because that is the default arm.
+<Callout variant="info" title="Unknown CPS modes are sanitized">
+The current config loader accepts `FIXED`, `HUMANIZED`, `WEAPON_AWARE` and
+`COOLDOWN`. A null or unknown value is replaced with `FIXED` before it reaches
+the settings UI or limiter.
 </Callout>
 
 ### What a blocked click does
@@ -144,7 +144,8 @@ tab shows 1000 while a burst is active.
 
 `click_sounds` is off by default. When it is on, a click sound plays for
 actions the mod executed — but only for physical input, never for a replayed
-event.
+event. The current sound manager applies pitch but does not pass the configured
+volume to the sound instance, so `click_sound_volume` is persisted but inert.
 
 | Setting | Range | Default |
 | --- | --- | --- |

@@ -1,126 +1,88 @@
 ---
 title: "Limitations"
-description: "Everything 4.1.2-alpha does not do, including settings that are stored but have no runtime effect."
+description: "Known gaps in the current 4.1.2 and 3.1.5 Fabric builds, including inert settings and CI runtime coverage."
 order: 4
 group: "Semantics"
 ---
 
 <Lead>
-This page lists the gaps. It is deliberately long, because a setting that
-looks live and is not is worse than a missing one.
+This page separates implemented behavior from settings and CI checks that can look more complete than they are.
 </Lead>
 
-## The alpha itself
+## Release and test coverage
 
-`4.1.2-alpha` is the current source tree. The input engine and the new
-settings screen are new code and **have not been tested in a running client**.
-`4.0.3-stable` is the last stable build.
+The current release tag is <code>v4.1.2-beta3</code>. The 26.x artifacts report 4.1.2; the 1.21.x artifacts report 3.1.5 and are separate older project trees. The last stable release remains 4.0.3-stable.
 
-<Callout variant="danger" title="There is no benchmark">
-The repository states that the mod has not been benchmarked in a running
-client. No FPS figure, no latency improvement figure and no comparison with
-vanilla appears anywhere in this documentation, because none was measured.
-The internal profiler measures queue-to-drain time inside the mod, which is a
-different quantity.
+The project does not publish a client FPS or end-to-end latency benchmark. The internal profiler measures time from action capture to game-thread drain; that is not hardware input latency and is not a comparison against vanilla.
+
+<Callout variant="warning" title="The current CI does not launch Minecraft">
+The latest Build and Release workflow passed its seven build/test targets, but the current source branch contains only <code>.github/workflows/gradle.yml</code>; it has no headless client startup job. The last recorded smoke run (14 November 2026, commit <code>973e0f1</code>) failed in 11 of 12 mod combinations. The 26.3/Iris job failed during graphics initialization with <code>Couldn't find matching GLX visual</code>; the 26.2/no-Sodium job also logged a GLFW invalid-key callback from the poller thread. A user-properties HTTP 401 was incidental, not the fatal cause. No later smoke run verifies that the graphics issue is fixed.
 </Callout>
 
-## Settings that are stored but have no effect
+## Persisted settings without runtime effect
 
-These five keys are written to the config file, validated, and reachable from
-the settings screen. No runtime behaviour depends on them.
+These five settings are stored and exposed in the UI, but current runtime code does not use them:
 
-| Key | What you would expect | What actually happens |
+| Key | Expected effect | Current behavior |
 | --- | --- | --- |
-| `show_keystrokes` | A keystroke display | There is no renderer. Nothing is drawn |
-| `fps_check_interval` | FPS sampled every N ticks | The adaptive rate is recomputed every client tick |
-| `keyboard_repeat_guard` | Toggle for "a held key is one press" | Repeat events are discarded unconditionally, before the toggle is read |
-| `debug_mode` | Verbose diagnostics | No log statement is gated on it |
-| `click_sound_volume` | A quieter click sound | The sound instance is created with the pitch only |
+| <code>show_keystrokes</code> | Draw a keystroke panel | No keystroke renderer exists |
+| <code>fps_check_interval</code> | Set the adaptive FPS sampling interval | The adaptive rate is recomputed every client tick |
+| <code>keyboard_repeat_guard</code> | Toggle repeat filtering | GLFW repeat events are discarded unconditionally |
+| <code>debug_mode</code> | Enable verbose diagnostics | No logging is gated on this value |
+| <code>click_sound_volume</code> | Change click sound loudness | The sound manager passes pitch but not volume to the sound instance |
 
-<Callout variant="warning" title="The behaviour is still safe">
-In every case the default behaviour is the sensible one. A held key is one
-press, the adaptive rate follows the frame rate, and the overlay is the only
-thing that draws. The problem is that the interface implies a control that
-does nothing.
-</Callout>
+## Features without a player-facing interface
 
-## Features that exist but have no interface
-
-| Feature | State |
+| Feature | Current state |
 | --- | --- |
-| The event log | Collected, bounded at 80 entries and correctly trimmed. **No viewer.** Only the internal `snapshot()` and `latest()` accessors |
-| Config import, export and presets | Implemented in `ConfigTools`. **No button calls them.** The `pvp`, `low_fps`, `debug` and `balanced` presets are unreachable |
-| Per-server profile bindings | `PerServerProfileManager.bind()` writes the file correctly. **No button calls it.** The binding file has to be written by hand |
+| Event log | Bounded in-memory collection; no viewer screen |
+| Config import/export and presets | Implemented in ConfigTools, but no current UI or command calls those methods |
+| Profile management | ProfileManager retains internal save/load/delete methods, but the current settings screens expose no profile manager |
+| Per-server profile bindings | The manager can load a bound profile; there is no binding UI or command, so the JSON and properties files must be edited manually |
 
-## Behaviour that is narrower than it sounds
+## Behavior narrower than the setting name suggests
 
-| Setting | Reality |
+| Setting or feature | Actual behavior |
 | --- | --- |
-| `show_action_bar` | Gates the burst mode start and end messages only. The replay, profile and combo key messages are sent regardless |
-| `cps_mode` | Never validated. An unknown value behaves exactly like `FIXED`, because that is the default arm of the switch |
-| `mouse_scroll_debounce_ms` | The debounce works, but scroll is only counted. The mod never applies scroll input |
-| The overlay | Has no latency average or peak line. Those values live in the profiler and are shown on the settings screen instead |
+| <code>show_action_bar</code> | Gates burst-mode start/end messages, not every message sent by the mod |
+| <code>cps_mode</code> | Unknown or null values are sanitized to <code>FIXED</code> |
+| <code>mouse_scroll_debounce_ms</code> | Debounces/counts scroll events; the mod does not apply scrolling to the game |
+| <code>overlay</code> | Shows engine/counter/dispatch diagnostics; it is not a keystroke display or an end-to-end latency meter |
 
-## The action rules
+## Action boundaries
 
-Some actions are deliberately narrow:
+- **Attack:** only a living entity within vanilla melee reach is attacked: three blocks, squared distance 9.
+- **Use:** the mod executes use only when the crosshair result is a miss. Blocks and entities return to vanilla handling.
+- **Block breaking:** remains a vanilla held-key mechanic.
+- **Offhand swap:** remains vanilla's responsibility.
+- **Pick block:** requires the pick-block accessor hook to have applied.
 
-- **Attack** only fires against a living entity within 36 squared units — the
-  vanilla melee reach. Nothing is ever attacked at a longer distance.
-- **Use** only fires when the crosshair hits nothing. A chest, a lever or an
-  entity goes back to vanilla's own `startUseItem()`.
-- **Block breaking** is never handled by the mod. It is a held-key mechanic
-  that vanilla already runs every tick.
-- **The offhand swap** is never handled by the mod.
-- **Pick block** needs the accessor mixin to have applied. If it did not, the
-  log says so once and pick-block input is disabled for the session.
+## Compatibility detection
 
-## Compatibility
+Automatic fallback checks four Fabric mod IDs: Controlify, Midnight Controls, Controllable and Zoomify. Detection uses Fabric Loader's mod list. Sodium and Iris are rendering mods and are not treated as input-owning mods.
 
-| Limit | Detail |
-| --- | --- |
-| Six known input mods | Controlify, Midnight Controls, Controllable, Sodium, Iris and Zoomify are detected by class name. A mod that owns input routing but is not on the list will not trigger the fallback |
-| The alpha keyboard handler | May pass a key twice or drop it on an untested version or mod combination |
-| The event hooks | `require = 0`, so a renamed target degrades to polling instead of crashing. The startup log says whether they applied |
-| The screen router | Falls back to a per-tick HUD check if neither screen hook applied |
+The experimental custom keyboard handler remains off by default. It is not a substitute for checking the screen-tracking hook or removing a conflicting input mod.
 
-## Versions and platforms
+## Supported versions
 
-| Limit | Detail |
-| --- | --- |
-| Minecraft 26.2 and 26.3 only | No 1.21.x build exists in this tree. The 1.21 jars come from an older codebase with different behaviour |
-| No NeoForge build for 26.3 | The NeoForge project targets 26.2 only |
-| Java 25 | Required by the mixin manifest and by the Fabric metadata |
-| Fabric Loader 0.19.0+ | The bracket-range bug in loader 0.19.5 is worked around, not fixed |
+The current release workflow builds seven Fabric client artifacts:
+
+| Minecraft | Mod version | Java |
+| --- | --- | --- |
+| 26.3, 26.2, 26.1.2, 26.1 | 4.1.2 | 25 |
+| 1.21.11, 1.21.4, 1.21.1 | 3.1.5 | 21+ |
+
+Fabric Loader 0.19.0 or newer is declared for these builds. Use the matching Fabric API version in the [support matrix](/docs/releases/support-matrix). There is no current NeoForge or server-side build.
+
+The root source README still summarizes only Minecraft 26.2/26.3 and mentions a profile-management UI. The release workflow builds seven targets, and the current settings screen has no profile-management controls. The documentation follows the module metadata and workflow; those README statements remain upstream discrepancies.
 
 ## The archived API
 
-The public API repository is **no longer maintained**. It targets Minecraft
-`>=1.21 <1.22` on Java 21 with Fabric only, and it is not wired into the
-26.x tree. Anything built against it will not work with this mod. See the
-[archived API page](/docs/releases/archived-api).
-
-## Known documentation discrepancies
-
-The README and the source disagree in two places. This site documents the
-source.
-
-| README says | Source does |
-| --- | --- |
-| The key bindings are in an InputBooster category | They are registered under `KeyMapping.Category.MISC` |
-| The event mixins target `MouseHandler.onPress/onScroll` | They target `onButton` and `onScroll`; `onPress` does not exist in 26.x |
-
-## What the mod will never do
-
-- Generate input without a physical press.
-- Extend reach or change hit registration.
-- Cancel another mod's key events or remap another mod's bindings.
-- Replace vanilla's `KeyboardHandler` or `MouseHandler`.
-- Send anything to a server that vanilla would not send.
-- Claim a performance improvement it has not measured.
+The old public API project is archived and is not bundled into any current mod artifact. The 1.21.x mod jars do not restore the API package or its entrypoint.
 
 ## Related pages
 
-- [Key reference](/docs/configuration/keys) — the five inert keys in context.
-- [Action semantics](/docs/reference/actions) — the exact conditions.
-- [Support matrix](/docs/releases/support-matrix) — what is published.
+- [Key reference](/docs/configuration/keys) — inert settings and their defaults.
+- [Support matrix](/docs/releases/support-matrix) — exact target dependencies.
+- [Building and testing](/docs/developers/building-and-testing) — what CI currently runs.
+- [Archived API](/docs/releases/archived-api) — the separate API project.

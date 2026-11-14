@@ -37,7 +37,7 @@ A standard Java properties file: `key=value`, one per line, `#` starts a
 comment.
 
 ```properties
-#InputBooster 4.1.2-alpha configuration - by Ahaduzzaman Khan
+#InputBooster 4.1.2 configuration - by Ahaduzzaman Khan
 poll_rate_hz=200
 poll_rate_auto=true
 burst_mode=true
@@ -64,6 +64,8 @@ show_keystrokes=true
 overlay_position=0
 overlay_scale=1.0
 overlay_opacity=0.8
+overlay_color=0xFFE6EDF3
+overlay_test_rect=false
 show_action_bar=true
 fps_check_interval=20
 debug_mode=false
@@ -79,7 +81,7 @@ overlay_show_overhead=true
 config_version=305
 ```
 
-That is all 39 persisted keys with their default values. The full table with
+That is all 41 persisted keys (40 settings plus config_version) with their default values. The full table with
 ranges and readers is in the [key reference](/docs/configuration/keys).
 
 ## How it is written
@@ -152,7 +154,9 @@ set:
 | `max_cps` | 1 to 20 |
 | `click_sound_pitch` | 0.5 to 2.0 |
 | `click_sound_volume` | 0.0 to 1.0 |
-| `overlay_position` | 0 to 3 |
+| `overlay_position` | 0 to 4 |
+| `overlay_color` | Any ARGB integer |
+| `overlay_test_rect` | Boolean |
 | `overlay_scale` | 0.5 to 3.0 |
 | `overlay_opacity` | 0.0 to 1.0 |
 | `fps_check_interval` | 1 to 100 |

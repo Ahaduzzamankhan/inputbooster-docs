@@ -70,7 +70,7 @@ All 23 fields, with the type and the default used when the field is missing.
 | `comboKeysEnabled` | boolean | true | |
 | `fpsCheckInterval` | number | 20 | Stored, but the adaptive rate ignores it |
 | `debugMode` | boolean | false | Stored, but no logging is gated on it |
-| `cpsMode` | string | `FIXED` | Upper-cased on apply; a blank value becomes `FIXED` |
+| `cpsMode` | string | `FIXED` | Sanitized to one of the four supported modes; unknown values become `FIXED` |
 | `replayEnabled` | boolean | true | |
 | `safeModeEnabled` | boolean | true | |
 | `eventLogEnabled` | boolean | true | |
@@ -87,7 +87,8 @@ written by an older version still loads.
 
 These config keys are deliberately outside the profile schema:
 
-`overlay_position`, `overlay_scale`, `overlay_opacity`, `overlay_mode`,
+`overlay_position`, `overlay_scale`, `overlay_opacity`, `overlay_color`,
+`overlay_test_rect`, `overlay_mode`,
 `overlay_show_engine`, `overlay_show_events`, `overlay_show_overhead`,
 `engine_mode`, `custom_keyboard_handler`, `compat_fallback`,
 `keyboard_repeat_guard`, `mouse_scroll_debounce_ms`, `mouse_click_dedupe_ms`,
@@ -147,10 +148,10 @@ The value is matched against the profile names **exactly**, ignoring case.
 A name that does not exist is ignored: the log records nothing and your
 settings simply do not change.
 
-<Callout variant="warning" title="There is no UI for this file">
-The manager can write a binding, but no button calls it in 4.1.2-alpha. The
-file has to be created by hand while the game is closed. See
-[profiles](/docs/guide/profiles).
+<Callout variant="warning" title="Profile management is file-based">
+The current settings screens have no Save, Load or Delete profile controls,
+and no button calls the binding writer. Prepare the JSON and binding files by
+hand while Minecraft is closed. See [profiles](/docs/guide/profiles).
 </Callout>
 
 ### Detection
@@ -162,7 +163,7 @@ to a stable identifier instead of throwing on the client tick.
 
 ## Related pages
 
-- [Profiles](/docs/guide/profiles) — using the profile screen.
+- [Profiles](/docs/guide/profiles) — current profile and UI limitations.
 - [The config file](/docs/configuration/config-file) — the main properties
   file.
 - [Key reference](/docs/configuration/keys) — the config keys a profile does

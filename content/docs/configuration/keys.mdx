@@ -1,12 +1,12 @@
 ---
 title: "Key reference"
-description: "All 39 persisted configuration keys with their default, their allowed range and the code that reads them."
+description: "All 41 persisted configuration keys with their default, their allowed range and the code that reads them."
 order: 2
 group: "Files"
 ---
 
 <Lead>
-Every key InputBooster writes, what it does, and — for four of them — the
+Every key InputBooster writes, what it does, and — for five of them — the
 fact that nothing reads them yet.
 </Lead>
 
@@ -33,10 +33,10 @@ fact that nothing reads them yet.
 | `max_cps` | `20` | 1–20 | `CpsLimiter` | The cap the limiter enforces |
 | `cps_mode` | `FIXED` | string | `CpsLimiter` | `FIXED`, `HUMANIZED`, `WEAPON_AWARE` or `COOLDOWN` |
 
-<Callout variant="warning" title="`cps_mode` is not validated">
-The value is upper-cased and stored, but it is never checked against the four
-known names. An unknown value falls through to the `FIXED` branch of the
-switch, because that is the default arm.
+<Callout variant="info" title="Unknown CPS modes are sanitized">
+`InputBoosterConfig.sanitizeCpsMode` accepts `FIXED`, `HUMANIZED`, `WEAPON_AWARE`
+and `COOLDOWN`. A null or unknown value is replaced with `FIXED` before it
+reaches the settings UI or limiter.
 </Callout>
 
 ## Mouse
@@ -84,9 +84,11 @@ whatever the toggle says — the toggle is simply not in the path.
 | --- | --- | --- | --- | --- |
 | `show_f3_info` | `true` | boolean | `OverlayRenderer.visible`, `DebugOverlayManager` | The master switch for the overlay |
 | `overlay_mode` | `0` | 0–1 | `OverlayRenderer.visible` | 0 F3 only, 1 always |
-| `overlay_position` | `0` | 0–3 | `OverlayLayout.compute` | 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right |
+| `overlay_position` | `0` | 0–4 | `OverlayLayout.compute` | 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right, 4 top-center |
 | `overlay_scale` | `1.0` | 0.5–3.0 | `OverlayRenderer.render` | Panel and glyph scale |
 | `overlay_opacity` | `0.8` | 0.0–1.0 | `OverlayRenderer.render` | The alpha of the panel background |
+| `overlay_color` | `0xFFE6EDF3` | ARGB integer | `OverlayRenderer`, settings UI | Text colour; UI offers eight presets |
+| `overlay_test_rect` | `false` | boolean | `OverlayRenderer`, client command | Draws a bright diagnostic rectangle for position testing |
 | `overlay_show_engine` | `true` | boolean | `OverlayRenderer.rebuildIfStale` | The engine line |
 | `overlay_show_events` | `true` | boolean | `OverlayRenderer.rebuildIfStale` | The event counter line |
 | `overlay_show_overhead` | `true` | boolean | `OverlayRenderer.rebuildIfStale` | The dispatch timing line |
@@ -122,7 +124,7 @@ those are sent unconditionally.
 `show_keystrokes`, `fps_check_interval`, `keyboard_repeat_guard`,
 `debug_mode` and `click_sound_volume` are all written to the file, all
 validated, and all reachable from the settings screen. No runtime behaviour
-depends on them in 4.1.2-alpha. They are documented here rather than hidden,
+depends on them in 4.1.2. They are documented here rather than hidden,
 because a setting that looks live and is not is worse than a missing one.
 </Callout>
 
@@ -138,7 +140,8 @@ because a setting that looks live and is not is worse than a missing one.
 
 These are in the config file but not captured by a profile:
 
-`overlay_position`, `overlay_scale`, `overlay_opacity`, `overlay_mode`,
+`overlay_position`, `overlay_scale`, `overlay_opacity`, `overlay_color`,
+`overlay_test_rect`, `overlay_mode`,
 `overlay_show_engine`, `overlay_show_events`, `overlay_show_overhead`,
 `engine_mode`, `custom_keyboard_handler`, `compat_fallback`,
 `keyboard_repeat_guard`, `mouse_scroll_debounce_ms`, `mouse_click_dedupe_ms`,

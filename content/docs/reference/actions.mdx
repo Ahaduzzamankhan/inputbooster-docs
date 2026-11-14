@@ -41,7 +41,7 @@ Only fires against a living entity within vanilla melee range:
 
 ```java
 if (target != null && target.isAlive()
-    && player.distanceToSqr(target) <= 36.0D) {
+    && player.distanceToSqr(target) <= 9.0D) {
     mc.gameMode.attack(player, target);
     McVersion.swingArm(player);
     markAttackHandled();
@@ -50,7 +50,7 @@ if (target != null && target.isAlive()
 
 | Condition | Result |
 | --- | --- |
-| Hit result is an entity, alive, within 36 squared units | The attack fires and vanilla's is suppressed |
+| Hit result is an entity, alive, within 9 squared units | The attack fires and vanilla's is suppressed |
 | Hit result is a block | **Nothing.** Block breaking is a held-key mechanic |
 | Hit result is `MISS` | Nothing |
 | Target died since the hit result was computed | Nothing |
@@ -201,7 +201,7 @@ The warning is printed once per session.
 
 | Action | Executes | Condition |
 | --- | --- | --- |
-| `ATTACK_PRESSED` | `gameMode.attack` + swing | Living entity within 36 squared units |
+| `ATTACK_PRESSED` | `gameMode.attack` + swing | Living entity within 9 squared units |
 | `ATTACK_RELEASED` | — | — |
 | `USE_PRESSED` | `gameMode.useItem` | Hit result is `MISS` |
 | `USE_RELEASED` | — | — |

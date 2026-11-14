@@ -6,9 +6,9 @@ group: "Semantics"
 ---
 
 <Lead>
-There are ten mixins. Two observe input, one drains the queue, one tracks
-screens, one adds the options button, three provide accessors and two are
-effectively empty.
+There are nine registered mixins: two input observers, one tick/drain hook,
+one HUD renderer hook, one options button hook, one screen tracker and three
+accessor/duck mixins. The former empty DebugHudMixin is no longer registered.
 </Lead>
 
 ## The manifest
@@ -21,7 +21,6 @@ effectively empty.
   "compatibilityLevel": "JAVA_25",
   "client": [
     "GameTickMixin",
-    "DebugHudMixin",
     "InGameHudMixin",
     "OptionsScreenMixin",
     "GuiAccessor",
@@ -158,16 +157,6 @@ private void onExtractRenderStateTail(DeltaTracker deltaTracker, boolean renderL
 
 The signature changed in 26.x: `extractRenderState(DeltaTracker, boolean,
 boolean)` replaced the graphics-extractor overload used on 26.1.
-
-### DebugHudMixin
-
-Target: `net.minecraft.client.gui.components.DebugScreenOverlay`. Priority 900.
-
-**Intentionally empty.** The class exists so the mixin list stays stable, but
-it injects nothing. An earlier version hooked `getLeftText` and `getRightText`,
-whose names differ across mapping versions, which produced "Cannot remap"
-warnings and an injection that never ran. The overlay now draws through the
-HUD render state instead, with no mapping dependency.
 
 ## The accessors
 
