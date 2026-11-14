@@ -7,8 +7,8 @@ group: "Behaviour"
 
 <Lead>
 A broken config value costs you that one setting and nothing else. This page
-lists which keys are checked, which are not, and what the log says when
-something is reset.
+documents the current 306 schema used by both the 4.1.2 26.x and 3.1.5 1.21.x
+projects.
 </Lead>
 
 ## The load order
@@ -23,14 +23,15 @@ something is reset.
     causes the defaults to be written out instead.
   </Step>
   <Step title="Migrate">
-    If the schema version is older than 305, three legacy keys are renamed and
-    the version is updated.
+    If the schema version is older than 306, the legacy-key migration runs and
+    the version is updated to 306.
   </Step>
   <Step title="Apply and clamp">
-    Each key is parsed and clamped into its allowed range.
+    Each key is parsed and clamped into its allowed range where a range exists.
   </Step>
   <Step title="Report">
-    Keys that could not be used are collected and named in one warning line.
+    Keys covered by the validation list that could not be used are collected
+    and named in one warning line. Some other parsed keys fall back silently.
   </Step>
 </Steps>
 
@@ -38,10 +39,11 @@ something is reset.
 
 Seven spellings are accepted, in any case:
 
-`true`, `yes`, `1`, `on` are true. `false`, `no`, `0`, `off` are false.
+<code>true</code>, <code>yes</code>, <code>1</code>, <code>on</code> are true.
+<code>false</code>, <code>no</code>, <code>0</code>, <code>off</code> are false.
 
 Anything else falls back to the default. The comparison trims surrounding
-whitespace first, so ` true ` is valid.
+whitespace first, so <code> true </code> is valid.
 
 ## Numbers
 
@@ -50,31 +52,31 @@ outside the allowed range is clamped:
 
 | Key | Below range | Above range |
 | --- | --- | --- |
-| `poll_rate_hz` | 60 | 1000 |
-| `max_cps` | 1 | 20 |
-| `overlay_position` | 0 | 3 |
-| `fps_check_interval` | 1 | 100 |
-| `engine_mode` | 0 | 2 |
-| `mouse_scroll_debounce_ms` | 0 | 200 |
-| `mouse_click_dedupe_ms` | 0 | 100 |
-| `overlay_mode` | 0 | 1 |
-| `overlay_scale` | 0.5 | 3.0 |
-| `overlay_opacity` | 0.0 | 1.0 |
-| `click_sound_pitch` | 0.5 | 2.0 |
-| `click_sound_volume` | 0.0 | 1.0 |
+| <code>poll_rate_hz</code> | 60 | 1000 |
+| <code>max_cps</code> | 1 | 20 |
+| <code>overlay_position</code> | 0 | 4 |
+| <code>fps_check_interval</code> | 1 | 100 |
+| <code>engine_mode</code> | 0 | 2 |
+| <code>mouse_scroll_debounce_ms</code> | 0 | 200 |
+| <code>mouse_click_dedupe_ms</code> | 0 | 100 |
+| <code>overlay_mode</code> | 0 | 1 |
+| <code>overlay_scale</code> | 0.5 | 3.0 |
+| <code>overlay_opacity</code> | 0.0 | 1.0 |
+| <code>click_sound_pitch</code> | 0.5 | 2.0 |
+| <code>click_sound_volume</code> | 0.0 | 1.0 |
 
-The same clamping happens when a value is set through the settings screen, so
-a value in the file and a value in the UI cannot produce different runtime
-states.
+<code>overlay_color</code> is parsed as a signed decimal integer. It is not
+clamped to a palette; invalid text falls back to the default. Do not use a
+<code>0x</code> prefix in the properties file.
 
 ## The warning line
 
-```text
+~~~text
 Config entries reset to defaults (invalid or unparsable): poll_rate_hz=2000, combo_keys=maybe
-```
+~~~
 
-A boolean is listed by name. A number is listed as `key=value` so you can see
-what was actually in the file.
+A boolean is listed by name. A number is listed as <code>key=value</code> so
+you can see what was actually in the file.
 
 <Callout variant="note" title="One line, not one line per key">
 The report is a single warning listing every key that had to be reset. It is
@@ -85,44 +87,49 @@ logged once per load, right before the "config loaded successfully" line.
 
 These keys are validated and reported when they are bad:
 
-**Booleans:** `poll_rate_auto`, `sprint_fix`, `auto_sprint`, `wtap_assist`,
-`anti_idle`, `auto_strafe`, `cps_limiter`, `burst_mode`, `combo_keys`,
-`custom_keyboard_handler`, `keyboard_repeat_guard`, `compat_fallback`,
-`overlay_show_engine`, `overlay_show_events`, `overlay_show_overhead`.
+**Booleans:** <code>poll_rate_auto</code>, <code>sprint_fix</code>,
+<code>auto_sprint</code>, <code>wtap_assist</code>, <code>anti_idle</code>,
+<code>auto_strafe</code>, <code>cps_limiter</code>, <code>burst_mode</code>,
+<code>combo_keys</code>, <code>custom_keyboard_handler</code>,
+<code>keyboard_repeat_guard</code>, <code>compat_fallback</code>,
+<code>overlay_show_engine</code>, <code>overlay_show_events</code>,
+<code>overlay_show_overhead</code>.
 
-**Numbers:** `engine_mode`, `mouse_scroll_debounce_ms`,
-`mouse_click_dedupe_ms`, `overlay_mode`, `poll_rate_hz`, `max_cps`,
-`overlay_position`, `fps_check_interval`.
+**Numbers:** <code>engine_mode</code>, <code>mouse_scroll_debounce_ms</code>,
+<code>mouse_click_dedupe_ms</code>, <code>overlay_mode</code>,
+<code>poll_rate_hz</code>, <code>max_cps</code>, <code>overlay_position</code>,
+<code>fps_check_interval</code>.
+
+<code>overlay_test_rect</code> is parsed as a boolean but is not in the warning
+list. <code>overlay_color</code> is parsed as an integer but is not in the
+warning list either.
 
 <Callout variant="warning" title="Checked is not the same as used">
-Being validated does not mean a key affects anything. Four of the checked
-booleans — `keyboard_repeat_guard`, and the three others listed under
-[inert keys](/docs/configuration/keys#the-five-inert-keys) — are read nowhere
-that would change behaviour.
+Two inert settings are validated but still do not affect runtime behavior:
+<code>keyboard_repeat_guard</code> and <code>fps_check_interval</code>. The other
+three inert keys (<code>show_keystrokes</code>, <code>debug_mode</code> and
+<code>click_sound_volume</code>) are not in the validation list.
 </Callout>
 
 ## Which keys are not checked
 
-These are not in the validation list. A bad value in one of them still falls
-back to the default, but it is **not** named in the warning line:
+These are not in the validation list. A bad value still falls back to the
+default, but it is not named in the warning line:
 
-`click_sounds`, `click_sound_pitch`, `click_sound_volume`, `replay_enabled`,
-`safe_mode`, `event_log`, `key_conflict_warn`, `per_server_profiles`,
-`show_f3_info`, `show_keystrokes`, `show_action_bar`, `debug_mode`,
-`cps_mode`, `config_version`.
-
-<Callout variant="info" title="Why the gap exists">
-The validation list was written to cover the keys whose failure would be
-surprising. The remaining keys are either booleans that behave identically
-when defaulted, or values that are clamped at read time anyway.
-</Callout>
+<code>click_sounds</code>, <code>click_sound_pitch</code>,
+<code>click_sound_volume</code>, <code>replay_enabled</code>,
+<code>safe_mode</code>, <code>event_log</code>, <code>key_conflict_warn</code>,
+<code>per_server_profiles</code>, <code>show_f3_info</code>,
+<code>show_keystrokes</code>, <code>show_action_bar</code>, <code>debug_mode</code>,
+<code>overlay_color</code>, <code>overlay_test_rect</code>, <code>cps_mode</code>,
+<code>config_version</code>.
 
 ## Strings
 
-`cps_mode` is upper-cased with `Locale.ROOT` and stored. It is never checked
-against the four known names, so a typo produces a value that behaves like
-`FIXED` — the default arm of the switch — while the file says something
-else.
+<code>cps_mode</code> is sanitized to one of <code>FIXED</code>,
+<code>HUMANIZED</code>, <code>WEAPON_AWARE</code> or <code>COOLDOWN</code>.
+A null or unknown value becomes <code>FIXED</code>. This fallback is silent:
+the bad string is not included in the warning line.
 
 ## Migration
 
@@ -130,17 +137,18 @@ Older schemas are migrated in place. The migration renames three keys:
 
 | Legacy key | Current key |
 | --- | --- |
-| `auto_sprint_key` | `auto_sprint` |
-| `watap` | `wtap_assist` |
-| `pollrate` | `poll_rate_hz` |
+| <code>auto_sprint_key</code> | <code>auto_sprint</code> |
+| <code>watap</code> | <code>wtap_assist</code> |
+| <code>pollrate</code> | <code>poll_rate_hz</code> |
 
 A rename only happens when the current key is absent, so a file that already
 has the new key keeps its own value.
 
 <Callout variant="note" title="The migration is deliberately small">
-Schema versions 1 to 303 used the same key names and had no upgrade path.
-The current migration does not invent values or change semantics — it only
-renames the three keys that were spelled differently in very old builds.
+Schemas 1 through 303 used the same key names and had no upgrade path. Schema
+305 is upgraded to 306. The migration does not invent values or change feature
+semantics; it only renames the three keys that were spelled differently in
+very old builds.
 </Callout>
 
 ## What a broken file cannot do
@@ -149,7 +157,7 @@ renames the three keys that were spelled differently in very old builds.
 | --- | --- |
 | The file does not exist | Defaults are written out |
 | The file is not readable | A warning is logged and the defaults are used |
-| A value is unparsable | That key is reset, the rest of the file is applied |
+| A value is unparsable | That key is reset; the rest of the file is applied |
 | A value is out of range | It is clamped into range |
 | A key is missing | The default is used for it |
 

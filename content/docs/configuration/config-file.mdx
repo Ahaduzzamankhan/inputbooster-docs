@@ -8,7 +8,8 @@ group: "Files"
 <Lead>
 Everything the mod remembers between sessions lives in one properties file.
 It is written atomically, read defensively and never fatal: a broken value
-costs you that one setting, not the game.
+costs you that one setting, not the game. All current targets write schema
+306.
 </Lead>
 
 ## Location
@@ -64,7 +65,7 @@ show_keystrokes=true
 overlay_position=0
 overlay_scale=1.0
 overlay_opacity=0.8
-overlay_color=0xFFE6EDF3
+overlay_color=-1643021
 overlay_test_rect=false
 show_action_bar=true
 fps_check_interval=20
@@ -78,7 +79,7 @@ overlay_mode=0
 overlay_show_engine=true
 overlay_show_events=true
 overlay_show_overhead=true
-config_version=305
+config_version=306
 ```
 
 That is all 41 persisted keys (40 settings plus config_version) with their default values. The full table with
@@ -155,7 +156,7 @@ set:
 | `click_sound_pitch` | 0.5 to 2.0 |
 | `click_sound_volume` | 0.0 to 1.0 |
 | `overlay_position` | 0 to 4 |
-| `overlay_color` | Any ARGB integer |
+| `overlay_color` | Signed decimal ARGB integer; no `0x` prefix |
 | `overlay_test_rect` | Boolean |
 | `overlay_scale` | 0.5 to 3.0 |
 | `overlay_opacity` | 0.0 to 1.0 |
@@ -167,7 +168,7 @@ set:
 
 ## The schema version
 
-`config_version` is the on-disk schema version. The current value is **305**.
+`config_version` is the on-disk schema version. The current value is **306** for all current 4.1.2 and 3.1.5 artifacts.
 
 When the mod loads a file with a lower version it logs a migration line and
 renames three legacy keys:

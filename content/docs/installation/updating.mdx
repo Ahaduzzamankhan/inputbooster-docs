@@ -35,11 +35,12 @@ check the Java runtime, and keep a backup of the last stable jar.
 
 ## Schema versions
 
-The config carries a `config_version`. The current schema is **305**.
+The config carries a `config_version`. The current schema is **306** for all current Minecraft targets.
 
 | Schema | Introduced in | Meaning |
 | --- | --- | --- |
-| 305 | 4.1.0-alpha | Current. Adds the nine 4.1 engine and overlay keys. |
+| 306 | 4.1.2 (26.x) / 3.1.5 (1.21.x) | Current for all seven targets. |
+| 305 | 4.1.0-alpha | Previous schema; upgraded to 306 on load. |
 | 303 and earlier | 3.x | Older schema, migrated on load. |
 
 When the mod loads a file with a lower version, it logs a migration line and

@@ -11,12 +11,12 @@ This page separates implemented behavior from settings and CI checks that can lo
 
 ## Release and test coverage
 
-The current release tag is <code>v4.1.2-beta3</code>. The 26.x artifacts report 4.1.2; the 1.21.x artifacts report 3.1.5 and are separate older project trees. The last stable release remains 4.0.3-stable.
+The current release tag is <code>v4.1.2-beta3</code>. The 26.x artifacts report 4.1.2; the 1.21.x artifacts report 3.1.5 and are separate older project trees. All seven current artifacts write config schema 306. The last stable release remains 4.0.3-stable.
 
 The project does not publish a client FPS or end-to-end latency benchmark. The internal profiler measures time from action capture to game-thread drain; that is not hardware input latency and is not a comparison against vanilla.
 
 <Callout variant="warning" title="The current CI does not launch Minecraft">
-The latest Build and Release workflow passed its seven build/test targets, but the current source branch contains only <code>.github/workflows/gradle.yml</code>; it has no headless client startup job. The last recorded smoke run (14 November 2026, commit <code>973e0f1</code>) failed in 11 of 12 mod combinations. The 26.3/Iris job failed during graphics initialization with <code>Couldn't find matching GLX visual</code>; the 26.2/no-Sodium job also logged a GLFW invalid-key callback from the poller thread. A user-properties HTTP 401 was incidental, not the fatal cause. No later smoke run verifies that the graphics issue is fixed.
+The latest Build and Release workflow passed its seven build/test targets, but the current source branch contains only <code>.github/workflows/gradle.yml</code>; it has no headless client startup job. The last recorded smoke run (14 November 2026, commit <code>973e0f1</code>) failed in 11 of 12 mod combinations. The 26.3/Iris job failed during graphics initialization with <code>Couldn't find matching GLX visual</code>; the 26.2/no-Sodium job also logged a GLFW invalid-key callback from the poller thread. A user-properties HTTP 401 was incidental, not the fatal cause. The earlier Vulkan <code>VK_KHR_surface</code> failure also has no later smoke evidence. No later smoke run verifies that the graphics issues are fixed.
 </Callout>
 
 ## Persisted settings without runtime effect

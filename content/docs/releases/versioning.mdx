@@ -16,7 +16,7 @@ Do not treat the mod version, release tag, Minecraft version and config schema a
 | Release tag | <code>v4.1.2-beta3</code> | GitHub release identifier; marked as a prerelease |
 | Mod version on 26.x | <code>4.1.2</code> | Embedded in the 26.x jars and startup line |
 | Mod version on 1.21.x | <code>3.1.5</code> | Embedded in the separate legacy 1.21.x jars |
-| Config schema | <code>305</code> | Value written to <code>config_version</code> |
+| Config schema | <code>306</code> | Value written to <code>config_version</code> by all seven current builds |
 | Minecraft target | Per artifact | Encoded in the jar suffix and Fabric metadata |
 
 ## Current jar naming
@@ -41,10 +41,10 @@ The loader flavour is no longer part of the filename because the current release
 
 ## Config schema
 
-The current properties schema is <code>305</code>. It is independent of the mod version. The schema was introduced in the 4.1.0-alpha line and remains 305 in the 4.1.2 release; the current overlay additions are backwards-compatible keys and do not change the schema number.
+The current properties schema is <code>306</code> in both project lines. It is independent of the mod version: 4.1.2 for 26.x and 3.1.5 for 1.21.x both write <code>config_version=306</code>.
 
 ~~~properties
-config_version=305
+config_version=306
 ~~~
 
 Older 3.x config files are migrated on load by renaming the supported legacy keys. Unknown keys are ignored; invalid values are reset to their defaults and reported in the log.

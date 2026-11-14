@@ -50,7 +50,7 @@ The layout clamps the panel to the screen after resizing. If the panel is larger
 | <code>overlay_color</code> | ARGB integer | <code>0xFFE6EDF3</code> |
 | <code>overlay_test_rect</code> | Boolean | false |
 
-The UI colour selector offers White, Cyan, Green, Yellow, Orange, Red, Magenta and Grey. A hand-edited ARGB value remains in the properties file; the UI displays the closest preset until a new colour is selected.
+The UI colour selector offers White, Cyan, Green, Yellow, Orange, Red, Magenta and Grey. A hand-edited ARGB value remains in the properties file; the UI displays the closest preset until a new colour is selected. The properties parser expects a signed decimal integer (for the default white, <code>-1643021</code>); a <code>0x</code> prefix is not accepted.
 
 The test rectangle is a bright diagnostic shape used to verify where the overlay is drawn. It is not part of normal gameplay display.
 
