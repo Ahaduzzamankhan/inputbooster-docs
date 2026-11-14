@@ -72,7 +72,7 @@ const audiences = [
     eyebrow: "For players",
     title: "Tune the input path",
     description:
-      "Install the right jar, understand the seven settings sections, and know which features help at low FPS — and which are cosmetic.",
+      "Install the right jar, understand the six vanilla settings sections or four Sodium pages, and know which features help at low FPS — and which are cosmetic.",
     href: "/docs/guide/settings",
     cta: "Open the gamer guide",
     icon: Gamepad2,
@@ -86,7 +86,7 @@ const audiences = [
     eyebrow: "For developers",
     title: "Read the internals",
     description:
-      "Follow an input from the platform poller to the drainer, audit the mixin contract, and build all three supported jars from source.",
+      "Follow an input from the platform poller to the drainer, audit the mixin contract, and build all seven published Fabric targets from source.",
     href: "/docs/developers/architecture",
     cta: "Open developer docs",
     icon: Code2,
@@ -131,7 +131,7 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-xs border border-warn/25 bg-warn/[0.06] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-warn">
                 <span className="h-1.5 w-1.5 rounded-full bg-warn" aria-hidden />
-                Alpha · {site.version}
+                Beta · {site.version}
               </span>
               <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-fog-500">
                 Client-side · Minecraft {site.minecraft}
@@ -179,9 +179,9 @@ export default function HomePage() {
 
             <dl className="mt-10 grid max-w-[34rem] grid-cols-2 gap-px overflow-hidden rounded-sm border border-line bg-line sm:grid-cols-4">
               {[
-                ["Loaders", "Fabric / NeoForge"],
-                ["Minecraft", "26.2 / 26.3"],
-                ["Java", "25"],
+                ["Loader", "Fabric only"],
+                ["Targets", "7 Fabric versions"],
+                ["Java", "21 / 25"],
                 ["License", "MIT"],
               ].map(([term, value]) => (
                 <div key={term} className="bg-ink-950/90 px-3 py-2.5">
@@ -419,12 +419,10 @@ export default function HomePage() {
               <Boxes size={18} className="mt-0.5 shrink-0 text-warn" strokeWidth={1.7} aria-hidden />
               <div>
                 <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-warn">
-                  Alpha status
+                  Beta status
                 </div>
                 <p className="mt-1.5 max-w-2xl text-[12.5px] leading-relaxed text-fog-300">
-                  {site.version} is an alpha. The input engine and settings screen are new
-                  code and have not been tested in a running client. 4.0.3-stable remains the
-                  last stable build. Read the limitations page before relying on a setting.
+                  {site.version} is published as a beta. The latest CI run builds and tests all seven targets, but the current workflow does not launch a headless Minecraft client. 4.0.3-stable remains the last stable build. Read the limitations page for the remaining runtime-coverage gap.
                 </p>
               </div>
             </div>

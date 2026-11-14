@@ -33,9 +33,9 @@ export const site = {
   title: "InputBooster Documentation",
   description:
     "Source-verified documentation for InputBooster, a client-side Minecraft mod that samples input faster than the game tick.",
-  version: "4.1.2-alpha",
-  minecraft: "26.2 / 26.3",
-  java: "25",
+  version: "4.1.2-beta3",
+  minecraft: "1.21.1 / 1.21.4 / 1.21.11 / 26.1 / 26.1.2 / 26.2 / 26.3",
+  java: "21 / 25",
   github: "https://github.com/Ahaduzzamankhan/inputbooster",
   issues: "https://github.com/Ahaduzzamankhan/inputbooster/issues",
   docs: "https://github.com/Ahaduzzamankhan/inputbooster-docs",

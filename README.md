@@ -4,10 +4,10 @@ Source-verified documentation for **InputBooster**, a client-side Minecraft mod
 that samples keyboard and mouse input faster than the game tick does.
 
 - Mod: [Ahaduzzamankhan/inputbooster](https://github.com/Ahaduzzamankhan/inputbooster)
-- Mod version documented here: **4.1.2-alpha** (Minecraft 26.2 / 26.3, Java 25)
+- Current release tag: **v4.1.2-beta3**. The 26.x artifacts report 4.1.2 (Java 25); separate 1.21.1 / 1.21.4 / 1.21.11 Fabric artifacts report 3.1.5 (Java 21).
 - Live site: <https://ahaduzzamankhan.github.io/inputbooster-docs>
 
-Every behavioural claim on the site is tied to the `4.1.2-alpha` source tree.
+Current 26.x behavior is tied to the 4.1.2 source projects; the 1.21.x artifacts are separate 3.1.5 project trees. Version-specific limitations are called out in the docs.
 Settings that are persisted but have no runtime effect are documented as such
 rather than quietly presented as working features.
 
@@ -75,8 +75,8 @@ Frontmatter fields: `title` and `description` are required; `order`, `group`,
 `<Mermaid>`, `<Kbd>` and `<Lead>`.
 
 ```mdx
-<Callout variant="warning" title="Alpha build">
-  This is the alpha line.
+<Callout variant="warning" title="Beta build">
+  The current release is published under the v4.1.2-beta3 tag.
 </Callout>
 
 <CodeBlock language="java" title="InputDrainer.java" code={`public static void drainAll() {}`} />

@@ -115,7 +115,7 @@ export default function OpenGraphImage() {
           <span style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}>
             {site.version} · Minecraft {site.minecraft}
           </span>
-          <span>Fabric / NeoForge · Java 25 · Client only</span>
+          <span>Fabric only · Java 21 / 25 · Client only</span>
         </div>
       </div>
     ),

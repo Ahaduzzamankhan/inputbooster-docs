@@ -20,7 +20,7 @@ export function SiteFooter() {
           </div>
           <p className="mt-3 max-w-sm text-xs leading-relaxed text-fog-400">
             Source-verified documentation for a client-side Minecraft input mod. Every
-            behavioural claim on this site is tied to the 4.1.2-alpha source tree; unverified
+            docs cover the 4.1.2 26.x projects and the separate 3.1.5 1.21.x projects
             settings are marked as such.
           </p>
           <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.1em] text-fog-500">

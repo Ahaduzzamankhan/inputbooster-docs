@@ -117,7 +117,7 @@ export function MobileNav({
                   <ArrowUpRight size={13} aria-hidden />
                 </a>
                 <div className="mt-2 font-mono text-[10px] text-fog-500">
-                  v4.1.2-alpha · MC 26.2 / 26.3
+                  v4.1.2-beta3 · 7 Fabric targets
                 </div>
               </div>
             </motion.div>

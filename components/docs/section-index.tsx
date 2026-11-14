@@ -45,7 +45,7 @@ export function SectionIndex({ section }: { section: Section }) {
           <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-line pb-5 font-mono text-[10px] uppercase tracking-[0.07em] text-fog-500">
             <span>{docs.length} pages</span>
             <span className="h-3 w-px bg-line-bright" aria-hidden />
-            <span>InputBooster 4.1.2-alpha</span>
+            <span>InputBooster 4.1.2-beta3</span>
           </div>
         </div>
 
