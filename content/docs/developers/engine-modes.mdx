@@ -102,16 +102,11 @@ Some mods own input routing. When one of them is present and
 alone instead of competing for it.
 
 Detection is a class-path lookup, not a mod-list dependency, so it works the
-same on Fabric and NeoForge without touching loader APIs:
+through Fabric Loader's mod-id lookup:
 
 ```java
-private static final String[][] KNOWN_INPUT_MODS = {
-    {"controlify", "dev.isxander.controlify.Controlify"},
-    {"midnightcontrols", "dev.lambdaurora.midnightcontrols.MidnightControls"},
-    {"controllable", "com.mrcrayfish.controllable.Controllable"},
-    {"sodium", "net.caffeinemc.mods.sodium.client.SodiumClientMod"},
-    {"iris", "net.irisshaders.iris.Iris"},
-    {"zoomify", "com.jab125.zoomify.Zoomify"},
+private static final String[] KNOWN_INPUT_MODS = {
+    "controlify", "midnightcontrols", "controllable", "zoomify"
 };
 ```
 
@@ -119,14 +114,15 @@ The scan runs once during initialisation. A class that cannot be loaded simply
 means the mod is not installed.
 
 <Callout variant="warning" title="The list is short and fixed">
-Six mods are checked by class name. A mod that owns input routing but is not
-in this list will not trigger the fallback. The detection is a starting point,
-not a complete compatibility map.
+Four mod IDs are checked with `FabricLoader.isModLoaded`: Controlify,
+Midnight Controls, Controllable and Zoomify. Sodium and Iris are rendering
+mods and are not in this list. Other input-owning mods are not detected.
 </Callout>
 
 ## Reading the resolved mode
 
-The Compatibility tab of the settings screen shows the mode and the reason.
+The General page in Sodium, or the Input engine section of the vanilla screen,
+exposes the configured engine mode and compatibility fallback.
 The overlay shows the mode in its engine line, and the status line is:
 
 ```java
@@ -166,5 +162,5 @@ The mode is not part of a profile, so switching profiles does not change it.
 ## Related pages
 
 - [Architecture](/docs/developers/architecture) — where the manager sits.
-- [Compatibility tab](/docs/guide/settings) — the settings side.
+- [Settings](/docs/guide/settings) — the current settings surfaces.
 - [The overlay](/docs/guide/overlay) — seeing the mode live.

@@ -30,13 +30,12 @@ is documentation. The codebase is full of the second kind:
 // Only fire at a target that is still alive and
 // within vanilla melee reach.
 if (target != null && target.isAlive()
-    && player.distanceToSqr(target) <= 36.0D) {
+    && player.distanceToSqr(target) <= 9.0D) {
 ```
 
 ```java
 // FIX (keybinds never registered): the mappings used to be
-// constructed in the client-setup callback, which on NeoForge runs
-// *after* the key-mapping registration event.
+// constructed after the key-mapping registration event had already fired.
 ```
 
 <Callout variant="info" title="The FIX comment convention">
@@ -148,9 +147,9 @@ the top of `load()` is what prevents that.
 
 ## Version differences
 
-Anything that differs between Minecraft 26.2 and 26.3 goes in
-`src/compat/mc26_2` or `src/compat/mc26_3`. Nothing version-specific belongs
-in the shared core.
+In the `fabric/` project, differences between Minecraft 26.2 and 26.3 go in
+`src/compat/mc26_2` or `src/compat/mc26_3`. The 26.1 and 1.21.x targets are
+separate Gradle projects with their own version-specific source and metadata.
 
 ```java
 // 26.x requires an explicit swing animation component on 26.3

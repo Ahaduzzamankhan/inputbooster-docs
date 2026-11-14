@@ -6,8 +6,8 @@ group: "Jar selection"
 ---
 
 <Lead>
-Updating is a file swap. The only thing that needs care is the config schema
-version and the fact that a bad alpha can stop the client from starting.
+Updating is a file swap. Match the new jar to the exact Minecraft version,
+check the Java runtime, and keep a backup of the last stable jar.
 </Lead>
 
 ## The update procedure
@@ -68,12 +68,12 @@ inside its range.
 **Reset to defaults:** keys that were missing from the file, keys with an
 unparsable value, and keys whose value falls outside the allowed range.
 
-**Not preserved:** the settings window's size and position. Those are session
-state by design and are never written to disk.
+**Not applicable:** the old custom window's size and position are no longer part
+of the current settings UI.
 
 <Callout variant="warning" title="A new key looks like a reset">
-When you update from 4.0 to 4.1, the nine new keys appear with their default
-values. They were not in your file, so they were never yours. The
+New settings added in 4.1.x or 4.1.2 appear with their documented defaults
+when the key is absent from your existing file. The
 [configuration reference](/docs/configuration/keys) lists which key belongs to
 which version.
 </Callout>
@@ -90,7 +90,7 @@ build. Rolling back does not break the config.
 
 <Callout variant="note" title="Keep one known-good jar outside `mods`">
 A jar sitting in your Downloads folder costs nothing and saves a session when
-4.1.2-alpha misbehaves. Keep `4.0.3-stable` there.
+the current beta build misbehaves. Keep `4.0.3-stable` there.
 </Callout>
 
 ## Downgrading past the schema
@@ -105,7 +105,7 @@ Nothing crashes; the newer keys are ignored.
 Run through this short list:
 
 - `Ready!` appears in the log.
-- The Overview tab shows the poll thread running.
+- The log contains the polling-thread startup line, and the client command `/inputbooster` reports mod/overlay status.
 - The engine mode is the one you expect.
 - Your poll rate and CPS cap are the values you set.
 

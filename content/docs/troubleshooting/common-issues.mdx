@@ -23,10 +23,10 @@ reference](/docs/troubleshooting/log-reference) lists all of them.
 
 | Cause | Fix |
 | --- | --- |
-| The jar does not match your Minecraft version | Use the `mc262` or `mc263` jar that matches |
+| The jar does not match your Minecraft version | Choose the exact target in the [jar matrix](/docs/installation/jar-matrix); there are seven Fabric artifacts |
 | Two jars are installed | Remove one. Two copies of the same mixins crash the client |
-| Java is not 25 | Check the launcher's Java version, not the system default |
-| The loader is too old | Fabric Loader 0.19.0+, Fabric API 0.161.0+, NeoForge 26.2.0.88+ |
+| Java is too old for the target | Use Java 25 for 26.x, or Java 21+ for 1.21.x |
+| The loader or API is too old | Use Fabric Loader 0.19.0+ and the Fabric API version for the exact Minecraft target |
 | The jar is in the wrong folder | It must be in the instance's `mods` directory, not the launcher's |
 
 ## The client crashed at launch
@@ -54,12 +54,11 @@ unusable.
 | --- | --- |
 | The screen hook did not apply | Check the log for the screen hook line. At least one of `setScreenAndShow` or `setScreen` must be `true` |
 | No screen hook applied at all | The mod falls back to a per-tick HUD check. Another mod may be feeding the player input |
-| Another mod owns input | Try the alpha keyboard handler, or remove the conflicting mod |
+| Another mod owns input | Check the screen hook log first; only test the experimental keyboard handler after ruling out the screen hook |
 
-<Callout variant="info" title="The alpha handler is not the first step">
-The chat-jump fix comes from the screen-tracking mixin, not from the custom
-keyboard handler. Enable the alpha handler only after the screen hook line
-has been checked.
+<Callout variant="info" title="The experimental handler is not the first step">
+The chat-jump fix comes from the screen-tracking mixin. Check whether the
+screen hook applied before changing the experimental keyboard-handler option.
 </Callout>
 
 ## Nothing works in one module
@@ -114,7 +113,7 @@ click.
 | Cause | Fix |
 | --- | --- |
 | The options mixin did not apply | The log will show a mixin error. This is rare |
-| The window is too small | The button is placed at `width - 110, 6`. A very narrow window can hide it |
+| The options button is missing | Check the options mixin log; use Mod Menu or the compatible Sodium pages on 26.x as an alternate entry point |
 
 ## The poll rate does not change
 
@@ -123,7 +122,7 @@ click.
 | Cause | Fix |
 | --- | --- |
 | Automatic mode is on | Turn **Auto** off, or use the Ctrl+1-5 presets |
-| Burst mode is active | The poller runs at 1000 Hz during a burst. The Overview tab shows 1000 |
+| Burst mode is active | The poller temporarily runs at 1000 Hz; check the burst message and current configuration |
 | The combo key preset did not apply | Make sure no screen is open and Ctrl is held |
 
 ## The combo keys do not work
@@ -143,7 +142,7 @@ click.
 | Cause | Fix |
 | --- | --- |
 | Nothing was recorded | Press R first. The log says `[Replay] Nothing recorded yet.` |
-| `replay_enabled` is off | Turn it on in the Advanced tab |
+| `replay_enabled` is off | Turn it on in the Safety and feedback section, or the Advanced Sodium page |
 | A screen is open | Playback waits until the player owns the keyboard |
 | You are pressing keys | Playback holds back while real input is queued |
 
@@ -153,7 +152,7 @@ click.
 
 | Cause | Fix |
 | --- | --- |
-| `per_server_profiles` is off | Turn it on in the Advanced tab |
+| `per_server_profiles` is off | Turn it on in the Safety and feedback section, or the Advanced Sodium page |
 | There is no binding file | Write `inputbooster_server_profiles.properties` by hand |
 | The key is not normalised | Use the lower-case host with no scheme, path or port |
 | The profile name does not match | The value must match a profile name exactly |

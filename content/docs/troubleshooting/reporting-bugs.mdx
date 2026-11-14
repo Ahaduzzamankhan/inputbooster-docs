@@ -35,8 +35,8 @@ than a public issue.
 | Java version | `java -version` |
 
 <Callout variant="info" title="Say the exact jar">
-`inputbooster-4.1.2-alpha-fabric-mc263.jar` is more useful than "the latest
-one", because the jar name encodes the loader and the Minecraft version.
+`inputbooster-4.1.2-mc263.jar` is more useful than "the latest
+one", because the jar name encodes the mod version and Minecraft target.
 </Callout>
 
 ### 2. The log
@@ -74,8 +74,9 @@ One sentence. "The overlay should stay visible when F3 is closed."
 
 ### 5. The other mods
 
-List them. The compatibility detector only knows six input mods by name, so an
-unlisted mod is the most likely explanation for a strange input problem.
+List them. The compatibility detector checks four Fabric mod IDs: Controlify,
+Midnight Controls, Controllable and Zoomify. Other input-routing mods are not
+automatically detected.
 
 ### 6. Screenshots or a short clip
 
@@ -91,7 +92,7 @@ options button open.
 
 **To Reproduce**
 1. Minecraft 26.3, Fabric Loader 0.19.5, Fabric API 0.161.0+26.3
-2. InputBooster 4.1.2-alpha-fabric-mc263.jar
+2. InputBooster 4.1.2-mc263.jar
 3. Java 25
 4. Join a singleplayer world
 5. Press T to open chat, type a space
@@ -104,7 +105,7 @@ The space should be typed and nothing else should happen.
 OS: Windows 11
 Minecraft: 26.3
 Loader: Fabric 0.19.5
-InputBooster: 4.1.2-alpha-fabric-mc263.jar
+InputBooster: 4.1.2-mc263.jar
 Java: 25
 Other mods: sodium 0.6.9, iris 1.7.3
 
