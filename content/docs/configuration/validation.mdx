@@ -145,10 +145,10 @@ A rename only happens when the current key is absent, so a file that already
 has the new key keeps its own value.
 
 <Callout variant="note" title="The migration is deliberately small">
-Schemas 1 through 303 used the same key names and had no upgrade path. Schema
-305 is upgraded to 306. The migration does not invent values or change feature
-semantics; it only renames the three keys that were spelled differently in
-very old builds.
+The migration is not version-specific: any file with a schema value below
+306 is checked for these three legacy key names. Schema 305 is the immediately
+previous schema. The migration does not invent values or change feature
+semantics; it only renames the three keys when the current key is absent.
 </Callout>
 
 ## What a broken file cannot do

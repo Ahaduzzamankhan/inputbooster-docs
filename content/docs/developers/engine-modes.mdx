@@ -13,39 +13,42 @@ state.
 
 ## The three modes
 
-```java
+~~~java
 public enum Mode {
     AUTO("auto"),
     EVENT("event"),
     POLL("poll");
 }
-```
+~~~
 
 | Mode | Behaviour |
 | --- | --- |
-| `AUTO` | Event hooks when they applied and no known input mod is present, otherwise polling |
-| `EVENT` | Event hooks only. Falls back to polling when they are unavailable |
-| `POLL` | High-rate sampling only. The hooks still update state but never dispatch |
+| <code>AUTO</code> | Uses event hooks when they are live and no known input mod requires fallback; otherwise polls |
+| <code>EVENT</code> | Uses event hooks only. Falls back to polling while the hooks are unavailable |
+| <code>POLL</code> | Uses high-rate sampling for dispatch. Event hooks still update state but do not dispatch |
 
-The configured value maps to the mode like this:
+The configured value maps to the mode:
 
-| `engine_mode` | Mode |
+| <code>engine_mode</code> | Mode |
 | --- | --- |
-| 0 | `AUTO` |
-| 1 | `EVENT` |
-| 2 | `POLL` |
+| 0 | <code>AUTO</code> |
+| 1 | <code>EVENT</code> |
+| 2 | <code>POLL</code> |
 
 ## Resolving the mode
 
-`CompatibilityManager.resolveMode()` decides:
+<code>CompatibilityManager.resolveMode()</code> decides:
 
-```java
+~~~java
 public InputEngine.Mode resolveMode() {
-    InputEngine.Mode configured = InputEngine.Mode.fromConfig(InputBoosterConfig.getEngineMode());
+    InputEngine.Mode configured =
+        InputEngine.Mode.fromConfig(InputBoosterConfig.getEngineMode());
+
     if (configured == InputEngine.Mode.EVENT && !eventSourceActive) {
         fallbackReason = "event hooks unavailable";
         return InputEngine.Mode.POLL;
     }
+
     if (configured == InputEngine.Mode.AUTO) {
         if (!detected.isEmpty() && InputBoosterConfig.isCompatFallback()) {
             fallbackReason = "compatibility fallback: " + String.join(", ", detected);
@@ -53,109 +56,108 @@ public InputEngine.Mode resolveMode() {
         }
         return eventSourceActive ? InputEngine.Mode.EVENT : InputEngine.Mode.POLL;
     }
+
     return configured;
 }
-```
+~~~
 
 <Callout variant="info" title="The event source is proven, not assumed">
-`eventSourceActive` only becomes true after the first keyboard or mouse event
-actually arrives. Until then, `EVENT` mode falls back to polling. This is why
-the very first press after startup is handled by the poller even in event
-mode.
+<code>eventSourceActive</code> becomes true only after the first keyboard or
+mouse event arrives. The processor marks the source live and re-resolves the
+mode before processing that event. In <code>EVENT</code> or <code>AUTO</code>
+mode, that first event is processed by the newly selected event path.
 </Callout>
 
 ## The mode can change at runtime
 
-The mode is re-resolved in two situations:
-
 | Trigger | Where |
 | --- | --- |
-| The first event arrives | `InputEngine.onKeyState` calls `resolveMode()` again |
-| `engine_mode` changed in the config | The client tick compares the configured value with the last one |
+| The first event arrives | <code>InputEngine.onKeyState</code> marks the event source live and calls <code>resolveMode()</code> again |
+| <code>engine_mode</code> changes | The client tick compares the configured value with the last resolved value |
 
-```java
-public void onKeyState(int code, boolean down) {
-    CompatibilityManager compat = InputBoosterMod.compatibilityManager;
-    if (compat != null) {
-        boolean firstEvent = !compat.eventSourceActive();
-        compat.markEventSourceActive();
-        if (firstEvent) {
-            eventDriven = true;
-            setMode(compat.resolveMode());
-        }
-    }
-    state.setRaw(code, down);
-    if (mode == Mode.POLL) return;
-    ...
-}
-```
-
-<Callout variant="note" title="State always updates">
-Even in `POLL` mode the event hooks still write to the state store. A mode
-switch therefore never starts from a stale picture, and switching is seamless.
-</Callout>
+State is updated by event hooks even in <code>POLL</code> mode. That prevents
+the engine from switching to a stale state snapshot.
 
 ## The compatibility fallback
 
-Some mods own input routing. When one of them is present and
-`compat_fallback` is on, the engine keeps polling and leaves event handling
-alone instead of competing for it.
+When <code>AUTO</code> mode sees a known input-routing mod and
+<code>compat_fallback=true</code>, it chooses polling so InputBooster does not
+compete with that mod's event-driven dispatch.
 
-Detection is a class-path lookup, not a mod-list dependency, so it works the
-through Fabric Loader's mod-id lookup:
+The current executable implementation checks four Fabric mod IDs:
 
-```java
+~~~java
 private static final String[] KNOWN_INPUT_MODS = {
     "controlify", "midnightcontrols", "controllable", "zoomify"
 };
-```
 
-The scan runs once during initialisation. A class that cannot be loaded simply
-means the mod is not installed.
+for (String modId : KNOWN_INPUT_MODS) {
+    if (FabricLoader.getInstance().isModLoaded(modId)) {
+        detected.add(modId);
+    }
+}
+~~~
 
-<Callout variant="warning" title="The list is short and fixed">
-Four mod IDs are checked with `FabricLoader.isModLoaded`: Controlify,
-Midnight Controls, Controllable and Zoomify. Sodium and Iris are rendering
-mods and are not in this list. Other input-owning mods are not detected.
+- Controlify
+- Midnight Controls
+- Controllable
+- Zoomify
+
+Sodium and Iris are rendering mods and are not in the list. Other input-routing
+mods are not automatically detected.
+
+<Callout variant="note" title="Source comment discrepancy">
+The JavaDoc above <code>CompatibilityManager.detect()</code> still describes
+the older class-path lookup. The executable method now calls
+<code>FabricLoader.isModLoaded(modId)</code>; the code, not that stale comment,
+defines the current behavior.
 </Callout>
 
 ## Reading the resolved mode
 
 The General page in Sodium, or the Input engine section of the vanilla screen,
-exposes the configured engine mode and compatibility fallback.
-The overlay shows the mode in its engine line, and the status line is:
+exposes the configured engine mode and compatibility fallback. The overlay
+shows the current mode and detected mod IDs in its engine line.
 
-```java
+The status line is built as follows:
+
+~~~java
 public String statusLine() {
-    return "Input: " + mode.label + (eventDriven ? " (event)" : " (poll)");
+    String mode = InputBoosterMod.inputEngine == null
+        ? "starting"
+        : InputBoosterMod.inputEngine.mode().label;
+    String compat = detected.isEmpty()
+        ? "no known input mods"
+        : String.join(", ", detected);
+    return "Engine: " + mode + " | " + compat;
 }
-```
+~~~
 
-`CompatibilityManager.statusLine()` adds the detection result:
+Example:
 
-```text
-Engine: poll | sodium
-```
+~~~text
+Engine: poll | no known input mods
+~~~
 
 ## Turning the fallback off
 
-With `compat_fallback=false`, `AUTO` no longer downgrades to polling when an
-input mod is detected. It picks `EVENT` when the hooks are live.
+With <code>compat_fallback=false</code>, <code>AUTO</code> no longer switches
+to polling just because one of the four IDs is detected. It selects
+<code>EVENT</code> when the event hooks are live.
 
 <Callout variant="danger" title="This is a compatibility risk">
-The fallback exists because another mod owns the event routing. Turning it off
-means InputBooster dispatches from hooks while that mod also dispatches from
-hooks, which can produce doubled or missing actions. If you turn it off, test
-in a world you do not mind breaking.
+The fallback exists because another mod may own input dispatch. Turning it
+off can make two mods react to the same physical input, producing doubled or
+missing actions. Test the change in a world where mistakes do not matter.
 </Callout>
 
 ## Forcing a mode
 
 | Situation | Setting |
 | --- | --- |
-| The hooks are not applying and you want the poller | `engine_mode=2` |
-| You want to prove the hooks work | `engine_mode=1` after the first event has fired |
-| You are not sure | Leave it on `0` |
+| Use the poller | <code>engine_mode=2</code> |
+| Require the event path after hooks are live | <code>engine_mode=1</code> |
+| Let the mod choose | <code>engine_mode=0</code> |
 
 The mode is not part of a profile, so switching profiles does not change it.
 

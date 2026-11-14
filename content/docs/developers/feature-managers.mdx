@@ -65,8 +65,8 @@ The burst manager is ticked outside the module manager — it follows
 | --- | --- | --- |
 | `AntiIdleManager` | `anti_idle` | Adds 0.0001 degrees of yaw every 200 ticks |
 | `EventLog` | `event_log` | Bounded in-memory list of the last 80 events |
-| `SessionStats` | — | Session counters and the 60-second CPS graph |
-| `LatencyProfiler` | — | Rolling window of queue-to-drain times |
+| `SessionStats` | — | Internal session counters and 60-second CPS graph; no current in-game Overview graph displays it |
+| `LatencyProfiler` | — | Internal rolling window of queue-to-drain times; not displayed in the current settings UI or overlay |
 | `KeybindConflictDetector` | `key_conflict_warn` | One-shot scan for two bindings on the same key |
 | `DebugOverlayManager` | `show_f3_info` | Owns the decision to draw the overlay |
 | `OverlayRenderer`, `OverlayLayout` | `overlay_*` | Draws the panel and places it |
